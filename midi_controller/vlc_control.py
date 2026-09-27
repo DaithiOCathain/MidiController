@@ -4,15 +4,19 @@ import subprocess
 import threading
 import time
 import json
+import urllib.request
+import base64
 
 from .config import VIDEO_VLC_CONFIG
 
 
 class VLCInstance:
-    def __init__(self, name, host, port, playlist, resume_file, extra_args=None):
+    def __init__(self, name, host, port, playlist, resume_file, http_port=None, http_password=None, extra_args=None):
         self.name = name
         self.host = host
         self.port = port
+        self.http_port = http_port
+        self.http_password = http_password
         self.playlist = playlist
         self.resume_file = resume_file
         self.extra_args = extra_args or []
@@ -50,6 +54,14 @@ class VLCInstance:
                 self.socket = None
                 return None
 
+    def start_playlist_export_timer(self, interval=600):
+        def loop():
+            while True:
+                time.sleep(interval)
+                self.export_playlist()
+
+        threading.Thread(target=loop, daemon=True).start()
+
     def raise_window(self):
         if self.process is not None:
             try:
@@ -86,13 +98,17 @@ class VLCInstance:
 
         args = [
             "vlc",
-            "--extraintf=rc",
+            f"--extraintf=rc,http",
             f"--rc-host={self.host}:{self.port}",
+            f"--http-host={self.host}",
+            f"--http-port={self.http_port}",
+            f"--http-password={self.http_password}",
             "--no-random",
             *self.extra_args,
             self.playlist,
-        ]
+        ]  
         self.process = subprocess.Popen(args)
+        self.start_playlist_export_timer()
 
         if resume_index and resume_time:
             def resume():
@@ -171,6 +187,8 @@ class VLCInstance:
         except Exception:
             pass
 
+        self.export_playlist()
+        
         if self.process is not None:
             self.process.terminate()
             try:
@@ -182,6 +200,41 @@ class VLCInstance:
             self.process = None
         else:
             print(f"VLC [{self.name}]: no tracked PID — kill manually")
+
+
+
+
+def export_playlist(self):
+    url = f"http://{self.host}:{self.http_port}/requests/playlist.json"
+    req = urllib.request.Request(url)
+    auth = base64.b64encode(f":{self.http_password}".encode()).decode()
+    req.add_header("Authorization", f"Basic {auth}")
+
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:
+        print(f"VLC [{self.name}]: playlist export failed: {e!r}")
+        return
+
+    paths = []
+
+    def walk(node):
+        for child in node.get("children", []):
+            if "uri" in child:
+                uri = child["uri"]
+                if uri.startswith("file://"):
+                    paths.append(urllib.parse.unquote(uri[len("file://"):]))
+            walk(child)
+
+    walk(data)
+
+    if paths:
+        with open(self.playlist, "w") as f:
+            f.write("\n".join(paths) + "\n")
+        print(f"VLC [{self.name}]: exported {len(paths)} items -> {self.playlist}")
+    else:
+        print(f"VLC [{self.name}]: export produced no items, not overwriting")
 
 
 VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
