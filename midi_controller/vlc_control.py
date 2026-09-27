@@ -204,42 +204,42 @@ class VLCInstance:
 
 
 
-def export_playlist(self):
-    url = f"http://{self.host}:{self.http_port}/requests/playlist.json"
-    req = urllib.request.Request(url)
-    auth = base64.b64encode(f":{self.http_password}".encode()).decode()
-    req.add_header("Authorization", f"Basic {auth}")
-
-    try:
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            data = json.loads(resp.read().decode())
-    except Exception as e:
-        print(f"VLC [{self.name}]: playlist export failed: {e!r}")
-        return
-
-    paths = []
-
-    def walk(node):
-        for child in node.get("children", []):
-            if "uri" in child:
-                uri = child["uri"]
-                if uri.startswith("file://"):
-                    paths.append(urllib.parse.unquote(uri[len("file://"):]))
-            walk(child)
-
-    walk(data)
-
-    if paths:
-        with open(self.playlist, "w") as f:
-            f.write("\n".join(paths) + "\n")
-        print(f"VLC [{self.name}]: exported {len(paths)} items -> {self.playlist}")
-    else:
-        print(f"VLC [{self.name}]: export produced no items, not overwriting")
-
-
-VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
-
-
+    def export_playlist(self):
+        url = f"http://{self.host}:{self.http_port}/requests/playlist.json"
+        req = urllib.request.Request(url)
+        auth = base64.b64encode(f":{self.http_password}".encode()).decode()
+        req.add_header("Authorization", f"Basic {auth}")
+    
+        try:
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+        except Exception as e:
+            print(f"VLC [{self.name}]: playlist export failed: {e!r}")
+            return
+    
+        paths = []
+    
+        def walk(node):
+            for child in node.get("children", []):
+                if "uri" in child:
+                    uri = child["uri"]
+                    if uri.startswith("file://"):
+                        paths.append(urllib.parse.unquote(uri[len("file://"):]))
+                walk(child)
+    
+        walk(data)
+    
+        if paths:
+            with open(self.playlist, "w") as f:
+                f.write("\n".join(paths) + "\n")
+            print(f"VLC [{self.name}]: exported {len(paths)} items -> {self.playlist}")
+        else:
+            print(f"VLC [{self.name}]: export produced no items, not overwriting")
+    
+    
+    VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
+    
+    
 def video_toggle_and_raise():
     VIDEO_VLC.launch_or_toggle()
     VIDEO_VLC.raise_window()
