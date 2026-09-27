@@ -98,7 +98,8 @@ class VLCInstance:
 
         args = [
             "vlc",
-            f"--extraintf=rc,http",
+            "--extraintf=rc",
+            "--extraintf=http",
             f"--rc-host={self.host}:{self.port}",
             f"--http-host={self.host}",
             f"--http-port={self.http_port}",
@@ -237,7 +238,7 @@ class VLCInstance:
             print(f"VLC [{self.name}]: export produced no items, not overwriting")
     
     
-    VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
+VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
     
     
 def video_toggle_and_raise():

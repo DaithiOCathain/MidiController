@@ -7,6 +7,7 @@ from .vlc_control import (
     vlc_jog_knob,
 )
 from .system_actions import make_monitor_toggle_action, toggle_mute, restart_obs, volume_knob
+from .pad_lights import animation_chase, animation_bounce, animation_alternate, animation_strobe, stop_animation
 
 PAD_PRESS_BY_MODE = {
     1: {  # VLC video
@@ -23,7 +24,13 @@ PAD_PRESS_BY_MODE = {
         # P3/P4 left blank per spec
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
-    4: {},  # System actions — placeholder
+    4: {
+        36: animation_chase,
+        37: animation_bounce,
+        38: animation_alternate,
+        39: animation_strobe,
+        40: stop_animation,  # not in your spec — added so animations are stoppable without switching modes
+    },
 }
 
 PAD_PRESS_FIXED = {}

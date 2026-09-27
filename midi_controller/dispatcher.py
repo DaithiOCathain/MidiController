@@ -6,10 +6,10 @@ import time
 import mido
 
 from .mappings import PAD_PRESS_BY_MODE, PAD_PRESS_FIXED, PAD_RELEASE, PAD_PROGRAM_PRESS, CC_HANDLERS
+from .pad_lights import get_outport, light_pad, stop_animation
 from .vlc_control import stop_video_jog
 from .scrub import fine_scrub_release
 
-_outport = None
 _current_mode = 1
 
 MODE_NOTES = {1: 36, 2: 37, 3: 38, 4: 39}
@@ -21,26 +21,6 @@ def find_port():
         if "LPD8" in name:
             return name
     raise RuntimeError("LPD8 not found — is it connected?")
-
-
-def get_outport():
-    global _outport
-    if _outport is None:
-        for name in mido.get_output_names():
-            if "LPD8" in name:
-                _outport = mido.open_output(name)
-                break
-    return _outport
-
-
-def light_pad(note, on=True):
-    outport = get_outport()
-    if outport is None:
-        return
-    if on:
-        outport.send(mido.Message('note_on', note=note, velocity=127))
-    else:
-        outport.send(mido.Message('note_off', note=note))
 
 
 def apply_mode_leds():
@@ -56,6 +36,7 @@ def set_mode(n):
 
     stop_video_jog()
     fine_scrub_release()
+    stop_animation()[]
 
     _current_mode = n
 
