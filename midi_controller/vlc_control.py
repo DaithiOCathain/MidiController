@@ -237,6 +237,22 @@ class VLCInstance:
         else:
             print(f"VLC [{self.name}]: export produced no items, not overwriting")
     
+_vlc_save_lock = threading.Lock()
+
+
+def save_and_quit_vlc():
+    if not _vlc_save_lock.acquire(blocking=False):
+        print("VLC: save/quit already in progress")
+        return
+
+    def worker():
+        try:
+            VIDEO_VLC.save_and_quit()
+        finally:
+            _vlc_save_lock.release()
+
+    threading.Thread(target=worker, daemon=True).start()
+
     
 VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
     

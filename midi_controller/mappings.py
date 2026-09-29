@@ -5,6 +5,7 @@ from .vlc_control import (
     video_toggle_and_raise,
     vlc_absolute_seek_knob,
     vlc_jog_knob,
+    save_and_quit_vlc,
 )
 from .system_actions import make_monitor_toggle_action, toggle_mute, restart_obs, volume_knob
 from .pad_lights import animation_chase, animation_bounce, animation_alternate, animation_strobe, stop_animation
@@ -15,7 +16,7 @@ PAD_PRESS_BY_MODE = {
         37: lambda: VIDEO_VLC.rc_send("seek -4"),  # short jump back
         38: make_key_action('v'),                    # cycle subtitle track
         39: make_key_action('b'),                     # cycle audio track
-        40: VIDEO_VLC.save_and_quit,
+        40: save_and_quit_vlc,
     },
     2: {  # MPV
         36: toggle_or_launch_mpv,
