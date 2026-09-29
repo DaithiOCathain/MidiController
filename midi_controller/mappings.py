@@ -30,7 +30,7 @@ PAD_PRESS_BY_MODE = {
         37: animation_bounce,
         38: animation_alternate,
         39: animation_strobe,
-        40: stop_animation,  # not in your spec — added so animations are stoppable without switching modes
+        40: stop_animation,  
     },
 }
 

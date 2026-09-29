@@ -14,6 +14,7 @@ def send_mpv_command(command):
     def action():
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
                 s.connect(MPV_SOCKET_PATH)
                 s.sendall(json.dumps({"command": command}).encode() + b"\n")
         except (FileNotFoundError, ConnectionRefusedError):
@@ -48,6 +49,7 @@ def mpv_get_property(prop):
 def toggle_or_launch_mpv():
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
             s.connect(MPV_SOCKET_PATH)
             s.sendall(json.dumps({"command": ["cycle", "pause"]}).encode() + b"\n")
     except (FileNotFoundError, ConnectionRefusedError):
