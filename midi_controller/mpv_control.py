@@ -2,6 +2,7 @@ import os
 import json
 import socket
 import subprocess
+import threading
 
 from .config import MPV_SOCKET_PATH, MPV_PLAYLIST
 from .scrub import scrub_delta, scrub_seconds
@@ -91,3 +92,19 @@ def mpv_save_and_quit():
         print(f"MPV: no time/index captured (time={time_pos}, index={playlist_pos})")
 
     send_mpv_command(["quit"])()
+
+
+_mpv_save_lock = threading.Lock()
+
+def save_and_quit_mpv():
+    if not _mpv_save_lock.acquire(blocking=False):
+        print("MPV: save/quit already in progress")
+        return
+
+    def worker():
+        try:
+            mpv_save_and_quit()
+        finally:
+            _mpv_save_lock.release()
+
+    threading.Thread(target=worker, daemon=True).start()

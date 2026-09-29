@@ -1,5 +1,5 @@
 from .keyboard_actions import make_key_action
-from .mpv_control import send_mpv_command, mpv_seek_scrub_knob, toggle_or_launch_mpv, mpv_save_and_quit
+from .mpv_control import send_mpv_command, mpv_seek_scrub_knob, toggle_or_launch_mpv, save_and_quit_mpv
 from .vlc_control import (
     VIDEO_VLC,
     video_toggle_and_raise,
@@ -21,7 +21,7 @@ PAD_PRESS_BY_MODE = {
     2: {  # MPV
         36: toggle_or_launch_mpv,
         37: send_mpv_command(["playlist-next"]),
-        40: mpv_save_and_quit,
+        40: save_and_quit_mpv,
         # P3/P4 left blank per spec
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
