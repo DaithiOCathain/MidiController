@@ -36,7 +36,7 @@ def set_mode(n):
 
     stop_video_jog()
     fine_scrub_release()
-    stop_animation()[]
+    stop_animation()
 
     _current_mode = n
 
