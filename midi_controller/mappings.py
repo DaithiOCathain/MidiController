@@ -1,3 +1,6 @@
+# TODO: no VLC HTTP command exists for frame-stepping on HTTP
+# make_key_action('e') instead of trying to do this through jog/shuttle.
+
 from .keyboard_actions import make_key_action
 from .mpv_control import send_mpv_command, mpv_seek_scrub_knob, toggle_or_launch_mpv, save_and_quit_mpv
 from .vlc_control import (

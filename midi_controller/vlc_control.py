@@ -1,58 +1,52 @@
+# NOTE: frame-stepping via HTTP is currently broken — VLC's HTTP API has
+# no frame-step command. This zone silently no-ops until fixed (see TODO
+# in mappings.py for the planned keyboard-simulation approach).
+
 import os
-import socket
 import subprocess
 import threading
 import time
 import json
 import urllib.request
+import urllib.parse
 import base64
 
 from .config import VIDEO_VLC_CONFIG
 
 
 class VLCInstance:
-    def __init__(self, name, host, port, playlist, resume_file, http_port=None, http_password=None, extra_args=None):
+    def __init__(self, name, host, playlist, resume_file, http_port, http_password, extra_args=None):
         self.name = name
         self.host = host
-        self.port = port
         self.http_port = http_port
         self.http_password = http_password
         self.playlist = playlist
         self.resume_file = resume_file
         self.extra_args = extra_args or []
-        self.socket = None
-        self.lock = threading.Lock()
         self.process = None
+        self.launching = False
 
-    def get_socket(self):
-        if self.socket is None:
-            try:
-                self.socket = socket.create_connection((self.host, self.port), timeout=0.3)
-                self.socket.settimeout(0.2)
-                while True:
-                    try:
-                        if not self.socket.recv(4096):
-                            break
-                    except socket.timeout:
-                        break
-            except OSError:
-                self.socket = None
-        return self.socket
+    def _auth_header(self):
+        auth = base64.b64encode(f":{self.http_password}".encode()).decode()
+        return {"Authorization": f"Basic {auth}"}
 
-    def rc_send(self, command):
-        with self.lock:
-            s = self.get_socket()
-            if s is None:
-                return None
-            try:
-                s.sendall(f"{command}\n".encode())
-                try:
-                    return s.recv(4096)
-                except socket.timeout:
-                    return None
-            except OSError:
-                self.socket = None
-                return None
+    def http_command(self, command=None, **params):
+        query = dict(params)
+        if command is not None:
+            query["command"] = command
+        url = f"http://{self.host}:{self.http_port}/requests/status.json"
+        if query:
+            url += "?" + urllib.parse.urlencode(query)
+
+        req = urllib.request.Request(url, headers=self._auth_header())
+        try:
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                return json.loads(resp.read().decode())
+        except Exception:
+            return None
+
+    def is_running(self):
+        return self.http_command() is not None
 
     def start_playlist_export_timer(self, interval=600):
         def loop():
@@ -72,17 +66,19 @@ class VLCInstance:
                 print(f"VLC [{self.name}]: xdotool not found, skipping window raise")
 
     def launch_or_toggle(self):
-        try:
-            with socket.create_connection((self.host, self.port), timeout=0.3) as s:
-                s.sendall(b"pause\n")
+        if self.is_running():
+            self.http_command("pl_pause")
             print(f"VLC [{self.name}]: toggled play/pause")
             return
-        except (ConnectionRefusedError, TimeoutError, OSError):
-            pass
 
+        if self.launching:
+            print(f"VLC [{self.name}]: launch already in progress")
+            return
+
+        self.launching = True
         print(f"VLC [{self.name}]: launching")
 
-        resume_index = None
+        resume_id = None
         resume_time = None
 
         if os.path.exists(self.resume_file):
@@ -92,80 +88,51 @@ class VLCInstance:
                 entry = all_state.get(self.name)
                 if entry:
                     resume_time = entry.get("time")
-                    resume_index = entry.get("index")
+                    resume_id = entry.get("id")
             except (OSError, json.JSONDecodeError):
                 pass
 
         args = [
             "vlc",
-            "--extraintf=rc",
             "--extraintf=http",
-            f"--rc-host={self.host}:{self.port}",
             f"--http-host={self.host}",
             f"--http-port={self.http_port}",
             f"--http-password={self.http_password}",
             "--no-random",
             *self.extra_args,
             self.playlist,
-        ]  
-        self.process = subprocess.Popen(args)
+        ]
+
+        try:
+            self.process = subprocess.Popen(args)
+        except Exception:
+            self.launching = False
+            raise
+
         self.start_playlist_export_timer()
 
-        if resume_index and resume_time:
-            def resume():
-                for _ in range(20):
-                    try:
-                        with socket.create_connection((self.host, self.port), timeout=0.5) as s:
-                            s.settimeout(0.3)
-                            while True:
-                                try:
-                                    if not s.recv(4096):
-                                        break
-                                except socket.timeout:
-                                    break
-                            s.sendall(f"goto {resume_index}\n".encode())
-                            time.sleep(0.3)
-                            s.sendall(f"seek {resume_time}\n".encode())
-                        return
-                    except (ConnectionRefusedError, OSError):
-                        time.sleep(0.5)
-            threading.Thread(target=resume, daemon=True).start()
+        def wait_for_ready():
+            for _ in range(20):
+                if self.is_running():
+                    self.launching = False
+                    if resume_id and resume_time:
+                        self.http_command("pl_play", id=resume_id)
+                        time.sleep(0.3)
+                        self.http_command("seek", val=resume_time)
+                    return
+                time.sleep(0.5)
+            self.launching = False
+
+        threading.Thread(target=wait_for_ready, daemon=True).start()
 
     def save_and_quit(self):
-        try:
-            with socket.create_connection((self.host, self.port), timeout=0.3) as s:
-                s.settimeout(0.2)
-                while True:
-                    try:
-                        if not s.recv(4096):
-                            break
-                    except socket.timeout:
-                        break
+        status = self.http_command()
 
-                s.settimeout(0.5)
-                s.sendall(b"get_time\n")
-                time_resp = s.recv(1024).decode().strip()
-                current_time = next(
-                    (p for p in reversed(time_resp.split()) if p.isdigit()), None
-                )
+        if status is not None:
+            current_time = status.get("time")
+            current_id = status.get("currentplid")
 
-                s.sendall(b"playlist\n")
-
-                playlist_resp = ""
-                s.settimeout(5.0)
-                deadline = time.monotonic() + 5.0
-                while time.monotonic() < deadline:
-                    try:
-                        chunk = s.recv(8192)
-                        if not chunk:
-                            break
-                        playlist_resp += chunk.decode(errors="replace")
-                        if playlist_resp.rstrip().endswith(">"):
-                            break
-                    except socket.timeout:
-                        break
-
-            if current_time and current_index:
+            if current_time is not None and current_id is not None and current_id != -1:
                 all_state = {}
                 if os.path.exists(self.resume_file):
                     try:
@@ -176,7 +143,7 @@ class VLCInstance:
 
                 all_state[self.name] = {
                     "time": current_time,
-                    "index": current_index,
+                    "id": current_id,
                 }
 
                 with open(self.resume_file, "w") as f:
@@ -184,12 +151,12 @@ class VLCInstance:
 
                 print(f"VLC [{self.name}]: saved resume state -> {self.resume_file}")
             else:
-                print(f"VLC [{self.name}]: no time/index captured, resume not saved (time={current_time}, index={current_index})")
-        except Exception:
-            pass
+                print(f"VLC [{self.name}]: no time/id captured, resume not saved (time={current_time}, id={current_id})")
+        else:
+            print(f"VLC [{self.name}]: status fetch failed, resume not saved")
 
         self.export_playlist()
-        
+
         if self.process is not None:
             self.process.terminate()
             try:
@@ -202,41 +169,42 @@ class VLCInstance:
         else:
             print(f"VLC [{self.name}]: no tracked PID — kill manually")
 
-
-
-
     def export_playlist(self):
         url = f"http://{self.host}:{self.http_port}/requests/playlist.json"
-        req = urllib.request.Request(url)
-        auth = base64.b64encode(f":{self.http_password}".encode()).decode()
-        req.add_header("Authorization", f"Basic {auth}")
-    
+        req = urllib.request.Request(url, headers=self._auth_header())
+
         try:
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode())
         except Exception as e:
             print(f"VLC [{self.name}]: playlist export failed: {e!r}")
             return
-    
-        paths = []
-    
+
+        entries = []
+
         def walk(node):
             for child in node.get("children", []):
                 if "uri" in child:
                     uri = child["uri"]
                     if uri.startswith("file://"):
-                        paths.append(urllib.parse.unquote(uri[len("file://"):]))
+                        path = urllib.parse.unquote(uri[len("file://"):])
+                        name = child.get("name", os.path.basename(path))
+                        entries.append((name, path))
                 walk(child)
-    
+
         walk(data)
-    
-        if paths:
+
+        if entries:
             with open(self.playlist, "w") as f:
-                f.write("\n".join(paths) + "\n")
-            print(f"VLC [{self.name}]: exported {len(paths)} items -> {self.playlist}")
+                f.write("#EXTM3U\n")
+                for name, path in entries:
+                    f.write(f"#EXTINF:-1,{name}\n")
+                    f.write(f"{path}\n")
+            print(f"VLC [{self.name}]: exported {len(entries)} items -> {self.playlist}")
         else:
             print(f"VLC [{self.name}]: export produced no items, not overwriting")
-    
+
+
 _vlc_save_lock = threading.Lock()
 
 
@@ -253,10 +221,10 @@ def save_and_quit_vlc():
 
     threading.Thread(target=worker, daemon=True).start()
 
-    
+
 VIDEO_VLC = VLCInstance(**VIDEO_VLC_CONFIG)
-    
-    
+
+
 def video_toggle_and_raise():
     VIDEO_VLC.launch_or_toggle()
     VIDEO_VLC.raise_window()
@@ -264,8 +232,12 @@ def video_toggle_and_raise():
 
 def vlc_absolute_seek_knob(value):
     pct = round(value / 127 * 100)
-    VIDEO_VLC.rc_send(f"seek {pct}%")
+    VIDEO_VLC.http_command("seek", val=f"{pct}%")
     print(f"VLC video seek: {pct}%")
+
+
+def vlc_seek_relative(seconds):
+    VIDEO_VLC.http_command("seek", val=f"{seconds:+d}")
 
 
 _vlc_jog_state = {"zone": None, "value": None, "stop_event": None, "thread": None}
@@ -299,12 +271,12 @@ def stop_video_jog():
     _vlc_jog_stop_repeat()
 
 
-def _vlc_jog_start_repeat(command, interval):
+def _vlc_jog_start_repeat(command, interval, **params):
     stop_event = threading.Event()
 
     def loop():
         while not stop_event.wait(interval):
-            VIDEO_VLC.rc_send(command)
+            VIDEO_VLC.http_command(command, **params)
 
     t = threading.Thread(target=loop, daemon=True)
     _vlc_jog_state["stop_event"] = stop_event
@@ -320,9 +292,9 @@ def vlc_jog_knob(value):
         _vlc_jog_stop_repeat()
         if previous is not None and 80 <= previous <= 85:
             if value > previous:
-                VIDEO_VLC.rc_send("key frame-next")
+                VIDEO_VLC.http_command("key", val="key-frame-next")
             elif value < previous:
-                VIDEO_VLC.rc_send("key frame-prev")
+                VIDEO_VLC.http_command("key", val="key-frame-prev")
         _vlc_jog_state["zone"] = zone
         _vlc_jog_state["value"] = value
         return
@@ -331,7 +303,7 @@ def vlc_jog_knob(value):
         if zone == "step_forward":
             _vlc_jog_stop_repeat()
             interval = 0.25 - ((value - 86) / 9.0) * 0.20
-            _vlc_jog_start_repeat("key frame-next", interval)
+            _vlc_jog_start_repeat("key", interval, val="key-frame-next")
         _vlc_jog_state["value"] = value
         return
 
@@ -340,21 +312,22 @@ def vlc_jog_knob(value):
     _vlc_jog_state["value"] = value
     print(f"VLC video jog: {zone}")
 
-    if zone == "ff_rewind":
-        _vlc_jog_start_repeat("seek -10", 0.3)
-    elif zone == "fast_rewind":
-        _vlc_jog_start_repeat("seek -3", 0.3)
-    elif zone == "slow_rewind":
-        _vlc_jog_start_repeat("seek -1", 0.4)
-    elif zone == "normal":
-        VIDEO_VLC.rc_send("rate 1")
-        VIDEO_VLC.rc_send("play")
-    elif zone == "step_forward":
-        interval = 0.25 - ((value - 86) / 9.0) * 0.20
-        _vlc_jog_start_repeat("key frame-next", interval)
-    elif zone == "fast_forward":
-        VIDEO_VLC.rc_send("rate 2")
-        VIDEO_VLC.rc_send("play")
-    elif zone == "ff_forward":
-        VIDEO_VLC.rc_send("rate 4")
-        VIDEO_VLC.rc_send("play")
+    match zone:
+        case "ff_rewind":
+            _vlc_jog_start_repeat("seek", 0.3, val="-10")
+        case "fast_rewind":
+            _vlc_jog_start_repeat("seek", 0.3, val="-3")
+        case "slow_rewind":
+            _vlc_jog_start_repeat("seek", 0.4, val="-1")
+        case "normal":
+            VIDEO_VLC.http_command("rate", val=1)
+            VIDEO_VLC.http_command("pl_play")
+        case "step_forward":
+            interval = 0.25 - ((value - 86) / 9.0) * 0.20
+            _vlc_jog_start_repeat_fn(_frame_next, interval)
+        case "fast_forward":
+            VIDEO_VLC.http_command("rate", val=2)
+            VIDEO_VLC.http_command("pl_play")
+        case "ff_forward":
+            VIDEO_VLC.http_command("rate", val=4)
+            VIDEO_VLC.http_command("pl_play")

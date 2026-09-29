@@ -13,7 +13,6 @@ RESUME_FILE = str(HOME / ".vlc_resume.json")
 VIDEO_VLC_CONFIG = dict(
     name="video",
     host="127.0.0.1",
-    port=4212,
     http_port=8081,
     http_password="videopass",
     playlist=str(HOME / "Documents" / "video.m3u"),
