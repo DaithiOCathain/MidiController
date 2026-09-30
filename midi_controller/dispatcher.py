@@ -9,10 +9,8 @@ from .mappings import PAD_PRESS_BY_MODE, PAD_PRESS_FIXED, PAD_RELEASE, PAD_PROGR
 from .pad_lights import get_outport, light_pad, stop_animation
 from .vlc_control import stop_video_jog
 from .scrub import fine_scrub_release
+from .modes import set_mode, apply_mode_leds, get_current_mode, MODE_NOTES
 
-_current_mode = 1
-
-MODE_NOTES = {1: 36, 2: 37, 3: 38, 4: 39}
 MODE_PROGRAMS = {4: 1, 5: 2, 6: 3, 7: 4}
 
 
@@ -21,40 +19,6 @@ def find_port():
         if "LPD8" in name:
             return name
     raise RuntimeError("LPD8 not found — is it connected?")
-
-
-def apply_mode_leds():
-    for mode, note in MODE_NOTES.items():
-        light_pad(note, on=(mode == _current_mode))
-
-
-_led_retry_stop = None
-
-
-def set_mode(n):
-    global _current_mode, _led_retry_stop
-
-    stop_video_jog()
-    fine_scrub_release()
-    stop_animation()
-
-    _current_mode = n
-
-    if _led_retry_stop is not None:
-        _led_retry_stop.set()
-
-    stop_event = threading.Event()
-    _led_retry_stop = stop_event
-
-    def retry_leds():
-        deadline = time.monotonic() + 4.0
-        while time.monotonic() < deadline and not stop_event.is_set():
-            apply_mode_leds()
-            time.sleep(0.2)
-
-    threading.Thread(target=retry_leds, daemon=True).start()
-
-    print(f"Mode: {n}")
 
 
 def handle_message(msg):
@@ -67,9 +31,9 @@ def handle_message(msg):
 
         apply_mode_leds()
 
-        action = PAD_PRESS_BY_MODE.get(_current_mode, {}).get(msg.note) or PAD_PRESS_FIXED.get(msg.note)
+        action = PAD_PRESS_BY_MODE.get(get_current_mode(), {}).get(msg.note) or PAD_PRESS_FIXED.get(msg.note)
         if action:
-            print(f"PAD PRESS: note={msg.note}, velocity={msg.velocity}, mode={_current_mode}")
+            print(f"PAD PRESS: note={msg.note}, velocity={msg.velocity}, mode={get_current_mode()}")
             action()
 
     elif msg.type == "note_off":

@@ -15,16 +15,40 @@ from .config import VIDEO_VLC_CONFIG
 
 
 class VLCInstance:
-    def __init__(self, name, host, playlist, resume_file, http_port, http_password, extra_args=None):
+    def __init__(self, name, host, playlist, resume_file, http_port, http_password, target_screen=None, extra_args=None):
         self.name = name
         self.host = host
         self.http_port = http_port
         self.http_password = http_password
         self.playlist = playlist
         self.resume_file = resume_file
+        self.target_screen = target_screen
         self.extra_args = extra_args or []
         self.process = None
         self.launching = False
+
+    def resolve_screen_number(self, name):
+        try:
+            output = subprocess.check_output(["xrandr", "--listmonitors"], text=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+
+        seen_names = []
+        for line in output.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            index_str = parts[0].rstrip(":")
+            output_name = parts[-1]
+            seen_names.append(output_name)
+            if output_name == name:
+                try:
+                    return int(index_str)
+                except ValueError:
+                    pass
+
+        print(f"VLC [{self.name}]: screen '{name}' not found among {seen_names}")
+        return None
 
     def _auth_header(self):
         auth = base64.b64encode(f":{self.http_password}".encode()).decode()
@@ -92,6 +116,14 @@ class VLCInstance:
             except (OSError, json.JSONDecodeError):
                 pass
 
+        screen_args = []
+        if self.target_screen:
+            screen_num = self.resolve_screen_number(self.target_screen)
+            if screen_num is not None:
+                screen_args = [f"--qt-fullscreen-screennumber={screen_num}"]
+            else:
+                print(f"VLC [{self.name}]: couldn't resolve screen '{self.target_screen}', using default")
+
         args = [
             "vlc",
             "--extraintf=http",
@@ -99,6 +131,7 @@ class VLCInstance:
             f"--http-port={self.http_port}",
             f"--http-password={self.http_password}",
             "--no-random",
+            *screen_args,
             *self.extra_args,
             self.playlist,
         ]

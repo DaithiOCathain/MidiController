@@ -17,5 +17,6 @@ VIDEO_VLC_CONFIG = dict(
     http_password="videopass",
     playlist=str(HOME / "Documents" / "video.m3u"),
     resume_file=RESUME_FILE,
+    target_screen="DVI-I-1",
     extra_args=["--fullscreen", "--no-spu", "--avcodec-hw=none"],
 )

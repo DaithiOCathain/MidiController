@@ -12,6 +12,7 @@ from .vlc_control import (
 )
 from .system_actions import make_monitor_toggle_action, toggle_mute, restart_obs, volume_knob
 from .pad_lights import animation_chase, animation_bounce, animation_alternate, animation_strobe, stop_animation
+from .modes import mode_dial_knob
 
 PAD_PRESS_BY_MODE = {
     1: {  # VLC video
@@ -51,6 +52,7 @@ PAD_PROGRAM_PRESS = {
 }
 
 CC_HANDLERS = {
+    1: mode_dial_knob,
     3: vlc_absolute_seek_knob,
     4: vlc_jog_knob,
     5: mpv_seek_scrub_knob,
