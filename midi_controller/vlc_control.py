@@ -325,9 +325,8 @@ def vlc_jog_knob(value):
         _vlc_jog_stop_repeat()
         if previous is not None and 80 <= previous <= 85:
             if value > previous:
-                VIDEO_VLC.http_command("key", val="key-frame-next")
+                make_key_action('e')
             elif value < previous:
-                VIDEO_VLC.http_command("key", val="key-frame-prev")
         _vlc_jog_state["zone"] = zone
         _vlc_jog_state["value"] = value
         return
