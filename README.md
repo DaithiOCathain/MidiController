@@ -1,27 +1,18 @@
 # LPD8 Media & Desktop Controller
 
-A Python-based MIDI controller mapper for the **Akai LPD8**, turning its pads and knobs into a physical control surface for **VLC (audio and video, as two independent instances)**, **MPV**, system audio, OBS, screenshots, and monitor power control.
+A Python-based MIDI controller mapper for the **Akai LPD8**, turning its pads and knobs into a physical control surface for **VLC (video)**, **MPV (audio)**, system audio, OBS, screenshots, monitor power control, and a self-contained 8-mode switching system with pad-LED feedback and animations.
 
-The mapper listens for MIDI messages from the LPD8 and translates them into application commands (via VLC's RC interface and MPV's IPC socket), keyboard shortcuts, or system actions.
+The mapper listens for MIDI messages from the LPD8 and translates them into application commands (via VLC's HTTP interface and MPV's IPC socket), keyboard shortcuts, or system actions.
 
 ## Features
 
-- 🎬 **VLC — two independent instances**
-  - **Audio instance:** launch/toggle, save position + quit
-  - **Video instance:** launch/toggle + raise window, save position + quit
-  - Absolute seeking, jog/shuttle control, frame-by-frame stepping
-  - Subtitle toggle
-  - Resume playback position (time + playlist item) on next launch, per instance
-- 🎵 **MPV control**
-  - Play/pause, next/previous track, quit
-  - Speed-sensitive scrubbing, with a fine 1-second-per-step modifier
+- 🎬 **VLC (video)** — launch/toggle + raise window, save position + quit, absolute seeking, jog/shuttle control, subtitle/audio track cycling, automatic playlist export (including session-added items) to `.m3u`
+- 🎵 **MPV (audio)** — play/pause, next track, quit, speed-sensitive scrubbing
+- 🕹️ **8-mode system** — switch via PROG CHNG (modes 1–4) or a dedicated knob dial (modes 1–8), with P1–P8 LEDs showing the active mode
+- 💡 **Pad LED feedback** — persistent, software-controlled indicator lights; mode 4 includes 4 selectable pad-chase animations
 - 🔊 **System audio** — volume control, mute toggle
 - 🖥️ **Desktop control** — toggle secondary monitors via DPMS, screenshots via Spectacle
-- 🎥 **OBS** — restart via a user-provided script
-
-## Why two VLC instances
-
-VLC has one playhead per process — one current item, one play/pause/stop state. Running audio and video as two separate VLC processes, each with its own RC interface on a distinct port, lets a pad independently start/stop one without touching the other. A single VLC instance can't do this: stopping "the playlist" stops the only thing it's playing.
+- 🎥 **Scripting** — add user-provided scripts
 
 ## Hardware Layout
 
@@ -30,11 +21,11 @@ Top:       P5  P6  P7  P8   | K1  K2  K3  K4
 Bottom:    P1  P2  P3  P4   | K5  K6  K7  K8
 ```
 
-Three operating modes, switched via the corresponding buttons on the device:
+Three physical device modes, switched via the corresponding buttons on the LPD8 itself:
 
-- **PAD** — note messages
-- **PROG CHNG** — program-change messages
-- **CC** — control-change messages
+- **PAD** — note messages (used for P1–P8 actions and LED-lit mode indicators)
+- **CC** — control-change messages (used for knobs)
+- **PROG CHNG** — program-change messages (used for modes 1–4 and a few fixed system actions)
 
 ---
 
@@ -44,19 +35,26 @@ Three operating modes, switched via the corresponding buttons on the device:
 MidiController/
 ├── lpd8_mapper.py              # entry point only
 ├── midi_listen.py              # standalone debug utility — dumps raw MIDI messages
+├── tests/                      # pytest suite — see Testing section below
 └── midi_controller/
     ├── __init__.py
-    ├── config.py                # paths, ports, playlists — all constants
+    ├── config.py                # paths, ports, playlists, target screen — all constants
     ├── keyboard_actions.py      # make_key_action, make_shift_key_action
     ├── system_actions.py        # screenshot, monitor toggle, mute, OBS restart, volume
     ├── scrub.py                 # scrub_delta, scrub_seconds, fine_scrub state
-    ├── mpv_control.py           # MPV IPC functions
-    ├── vlc_control.py           # VLCInstance class, AUDIO_VLC/VIDEO_VLC, jog/seek knobs
-    ├── mappings.py              # PAD_PRESS / PAD_RELEASE / PAD_PROGRAM_PRESS / CC_HANDLERS
+    ├── mpv_control.py           # MPV IPC functions, MPV save+quit (resume state)
+    ├── vlc_control.py           # VLCInstance class (HTTP-only), VIDEO_VLC, jog/seek knobs
+    ├── pad_lights.py            # MIDI output / LED primitives, animation loops
+    ├── modes.py                 # mode state, mode-switch LED logic, mode-dial knob handler
+    ├── mappings.py               # PAD_PRESS_BY_MODE / PAD_PRESS_FIXED / PAD_PROGRAM_PRESS / CC_HANDLERS
     └── dispatcher.py            # find_port, handle_message, main()
 ```
 
-There is no installer script — clone the repo, install dependencies, edit `midi_controller/config.py` to match your own media locations, and run `lpd8_mapper.py` directly.
+Install
+- clone the repo, 
+- install dependencies, 
+- edit `midi_controller/config.py` to match your own media locations,
+- run `lpd8_mapper.py` directly.
 
 ---
 
@@ -66,7 +64,7 @@ There is no installer script — clone the repo, install dependencies, edit `mid
 
 - Linux desktop (developed against KDE Plasma; `kscreen-doctor` and `spectacle` are KDE-specific)
 - An Akai LPD8 connected over USB
-- `mpv`, `vlc`, `pactl`, `spectacle`, `kscreen-doctor`, `xdotool`
+- `mpv`, `vlc`, `pactl`, `spectacle`, `kscreen-doctor`, `xdotool`, `xrandr`
 - An OBS restart script (user-provided, executable)
 - Python packages: `mido`, `pynput`, and a MIDI backend (`python-rtmidi`)
 
@@ -84,7 +82,7 @@ sudo apt install python3-mido python3-pynput python3-rtmidi
 
 ## Configuration
 
-Constants live in `midi_controller/config.py`. Paths are built from the current user's home directory via `pathlib.Path.home()`, so nothing user-specific needs editing on a fresh clone unless your media lives somewhere other than `~/Documents`:
+Constants live in `midi_controller/config.py`. Paths are built from the current user's home directory via `pathlib.Path.home()`:
 
 ```python
 from pathlib import Path
@@ -97,61 +95,80 @@ MPV_PLAYLIST = str(HOME / "Documents" / "allmusic.m3u")
 SCREENSHOT_PATH = str(HOME / "sofa_screenshot.png")
 OBS_RESTART_SCRIPT = str(HOME / ".local" / "bin" / "restart-obs.sh")
 
-AUDIO_VLC_CONFIG = dict(
-    name="audio",
-    host="127.0.0.1",
-    port=4213,
-    playlist=str(HOME / "Documents" / "audio.m3u"),
-    resume_file=str(HOME / ".vlc_audio_resume"),
-    extra_args=["--intf", "dummy", "--width=400", "--height=400"],
-)
+RESUME_FILE = str(HOME / ".vlc_resume.json")
 
 VIDEO_VLC_CONFIG = dict(
     name="video",
     host="127.0.0.1",
-    port=4212,
+    http_port=8081,
+    http_password="videopass",
     playlist=str(HOME / "Documents" / "video.m3u"),
-    resume_file=str(HOME / ".vlc_video_resume"),
+    resume_file=RESUME_FILE,
+    target_screen="DVI-I-1",
     extra_args=["--fullscreen", "--no-spu", "--avcodec-hw=none"],
 )
 ```
 
-Playlist filenames (`allmusic.m3u`, `audio.m3u`, `video.m3u`), the screenshot filename, and the OBS restart script path are still literal strings you may want to rename — only the *directory* portion is resolved relative to the current user automatically.
+**Change `http_password` from the placeholder value.** It's local-loopback-only (`127.0.0.1`), so the stakes are low, but don't ship the literal example password.
 
-### VLC — audio instance
+**`target_screen`** must exactly match an output name from:
 
-Launched with `--intf dummy` (no RC-interface overlap issues) and a fixed small window (`400x400`) so embedded cover art has somewhere to render. If a file lacks embedded art, VLC just shows its default placeholder in that window.
+```
+xrandr --listmonitors
+```
 
-### VLC — video instance
+(e.g. `DVI-I-1`, not `DVI-1` — match case and naming precisely). This is resolved to a numeric index at launch time and passed as `--qt-fullscreen-screennumber=N`. `[verifiable]` VLC's own forum has multiple reports of this flag behaving unreliably — sometimes affecting only the interface and not the video output, sometimes ignored outright. Test it after any monitor/cable change rather than assuming it still works.
 
-Launched `--fullscreen`, subtitles suppressed by default (`--no-spu`; toggle via P3), hardware decode disabled (`--avcodec-hw=none`).
+### VLC — resume state
 
-### VLC resume state
+On save-and-quit, current playback time and the VLC-internal current-item ID (`currentplid`, from `status.json`) are written to `RESUME_FILE`, keyed by instance name. On next launch, playback resumes at that item and time. This replaced an earlier RC-based approach that tracked playlist *position* rather than item ID — ID-based resume is more robust since item IDs don't shift when the playlist is reordered or added to.
 
-Each instance has its own resume file (`resume_file` in its config). On save-and-quit, the current playback time and playlist index are written there; on next launch, that instance seeks back to the saved position before playback resumes. The two instances never share state.
+### VLC — playlist export
 
-### Window raising (video only)
+Every VLC instance periodically (default: every 10 minutes while running) and on every save-and-quit exports its *live* playlist — including anything added during the session, not just the original file — back over its own configured `.m3u` path, via `/requests/playlist.json`. Output includes `#EXTM3U`/`#EXTINF` headers with proper per-track titles (falling back to filename if VLC has no title metadata for an item), not bare file paths.
 
-`raise_window()` uses `xdotool` to bring the video instance's window to the front by its tracked PID — this requires an X11 session. On Wayland it will silently fail unless swapped for a Wayland-native equivalent (e.g. `kdotool` under KWin), which isn't implemented here.
+### Window raising
+
+`raise_window()` uses `xdotool` to bring the video instance's window to the front by tracked PID — requires an X11 session. No Wayland equivalent is implemented.
+
+### Launch race guard
+
+`VLCInstance.launching` is a boolean guard preventing a second VLC process from spawning if the pad is pressed again while a previous launch is still completing (the async "wait for HTTP interface to come up" step). Rapid repeated presses during startup are ignored rather than spawning duplicate processes.
 
 ---
 
-## Pad Mapping — PAD / Note Mode
+## The 8-mode system
 
-| Pad | Note | Action |
-| --- | ---- | ------ |
-| P1 | 36 | VLC **audio**: launch/toggle |
-| P2 | 37 | MPV next track |
-| P3 | 38 | VLC subtitle toggle (simulated Shift+V) |
-| P4 | 39 | VLC **video**: launch/toggle + raise window |
-| P5 | 40 | VLC **audio**: save position + quit |
-| P6 | 41 | MPV previous track |
-| P7 | 42 | Hold for fine MPV scrubbing |
-| P8 | 43 | VLC **video**: save position + quit |
+Modes are tracked centrally in `midi_controller/modes.py` (`get_current_mode()` / `set_mode(n)`), imported by both `dispatcher.py` (for PROG CHNG and pad dispatch) and `mappings.py` (for the knob dial), avoiding a circular import between the two.
 
-MPV's own play/pause pad from the earlier single-instance design was reassigned to VLC audio control — if you still want a dedicated MPV toggle pad, it isn't currently mapped anywhere.
+### Switching modes
 
-## Pad Mapping — PROG CHNG Mode
+- **Knob K1 (CC 1)** → modes 1–8, via `mode_dial_knob()` in `modes.py`. The knob's 0–127 range is split into 8 zones (~16 values each) with a small hysteresis dead-band (±3) at zone boundaries to prevent flicker when the knob rests near an edge.
+- **PROG CHNG programs 4–7** → modes 1–4 (`MODE_PROGRAMS` in `dispatcher.py`). Programs 0–3 remain fixed system actions (monitor toggle, mute, OBS restart), unrelated to mode-switching.
+
+### Mode indicator LEDs
+
+`MODE_NOTES` maps each mode (1–8) to its corresponding pad's note (P1=36 … P8=43). `apply_mode_leds()` lights exactly one pad at a time, matching the current mode; `set_mode()` also stops any running VLC jog/shuttle, releases fine-scrub, and stops any running pad animation, before updating the LED state — this is deliberate: switching modes force-stops whatever was mid-action rather than leaving it running in the background.
+
+### Mode content
+
+| Mode | Trigger | P1 | P2 | P3 | P4 | P5 |
+| ---- | ------- | -- | -- | -- | -- | -- |
+| 1 | PROG CHNG / knob | VLC launch/toggle + raise | Seek −4s | Cycle subtitle track (`V` key) | Cycle audio track (`B` key) | VLC save + quit |
+| 2 | PROG CHNG / knob | MPV launch/toggle | MPV next track | *(unset)* | *(unset)* | MPV save + quit (resume state) |
+| 3 | knob only | — | — | — | — | *(unset — placeholder, possible karaoke/Ultrastar Deluxe)* |
+| 4 | PROG CHNG / knob | Chase animation | Bounce animation | Alternate animation | Strobe animation | Stop animation |
+| 5–8 | knob only | — | — | — | — | *(unset — placeholders)* |
+
+P6–P8 are currently unbound in every mode. Mode 1's save-quit (P5) goes through `save_and_quit_vlc()`, a lock-guarded wrapper preventing a second save-and-quit from starting while one is already in progress.
+
+### Pad animations (mode 4)
+
+Defined in `pad_lights.py`: `animation_chase`, `animation_bounce`, `animation_alternate`, `animation_strobe`, each running on a background daemon thread with a `threading.Event` stop flag (`stop_animation()`). Animations use all 8 pads (P1–P8) as their canvas, independent of the mode-indicator LEDs, which reassert themselves via the retry loop and on the next real pad press.
+
+---
+
+## Pad Mapping — PROG CHNG Mode (fixed, non-mode-dependent)
 
 | Pad | Program | Action |
 | --- | ------- | ------ |
@@ -159,23 +176,19 @@ MPV's own play/pause pad from the earlier single-instance design was reassigned 
 | P2 | 1 | Toggle system mute |
 | P3 | 2 | Restart OBS |
 | P4 | 3 | Toggle secondary monitors (shares state with P1) |
-| P5 | 4 | **UNSET** |
-| P6 | 5 | **UNSET** |
-| P7 | 6 | **UNSET** |
-| P8 | 7 | **UNSET** |
-
-Programs 4–7 are deliberately unmapped — the interface was pared back rather than filled in.
+| P5–P8 | 4–7 | Switch to mode 1–4 (see above) |
 
 ## Knob Mapping — CC Mode
 
 | Knob | CC | Action |
 | ---- | -- | ------ |
-| K3 | 3 | VLC (video) absolute seek, 0–100% |
-| K4 | 4 | VLC (video) jog/shuttle |
+| K1 | 1 | 8-mode dial (see above) |
+| K3 | 3 | VLC absolute seek, 0–100% |
+| K4 | 4 | VLC jog/shuttle |
 | K5 | 5 | MPV speed-sensitive scrub |
 | K8 | 8 | System volume, 0–100% |
 
-K1, K2, K6, K7 are unused.
+K2, K6, K7 are unused.
 
 ### K4 — jog/shuttle zones
 
@@ -185,7 +198,7 @@ K1, K2, K6, K7 are unused.
 | 16–31 | Fast rewind | Repeated `-3s` seeks |
 | 32–47 | Slow rewind | Repeated `-1s` seeks |
 | 48–79 | Normal | Normal playback |
-| 80–95 | Step forward | Frame-by-frame advance, speed follows knob position |
+| 80–95 | Step forward | Frame-by-frame advance (forward only — see HTTP limitation above) |
 | 96–111 | Fast forward | 2× rate |
 | 112–127 | Fast fast forward | 4× rate |
 
@@ -201,8 +214,6 @@ VLC doesn't reliably support negative playback rates, so rewind is simulated via
 | < 20 steps/sec | 15 seconds |
 | ≥ 20 steps/sec | 30 seconds |
 
-Hold P7 for fine mode: exactly 1 second per MIDI step, regardless of speed.
-
 ---
 
 ## Running
@@ -217,48 +228,36 @@ The mapper searches available MIDI input ports for one whose name contains `LPD8
 Listening on <port name> — Ctrl+C to stop
 ```
 
-Stop with `Ctrl+C`.
+Mode 1's LED lights on startup by default. Stop with `Ctrl+C`.
 
 ### Debugging raw MIDI
 
-`midi_listen.py` is a separate, standalone script — not used by the mapper — that connects to a hard-coded port name and prints every incoming MIDI message verbatim. Useful for checking exact note/CC/program numbers your device sends, or confirming the port name matches what `find_port()` expects:
+`midi_listen.py` is a separate, standalone script — not used by the mapper — that connects to a hard-coded port name and prints every incoming MIDI message verbatim.
 
 ```
 python3 midi_listen.py
 ```
 
-Edit the `PORT` constant at the top of the file if your device enumerates under a different name.
-
 ---
 
-## Autostart (systemd user service)
+## Testing
+
+`tests/` contains a pytest suite. Currently: one import-smoke-test per module (`tests/test_imports.py`), confirming every module parses and imports cleanly without a running MIDI device or live VLC/MPV instance.
 
 ```
-~/.config/systemd/user/lpd8-mapper.service
+pip install pytest --break-system-packages
+pytest tests/
 ```
 
-```ini
-[Unit]
-Description=Akai LPD8 Controller
-After=graphical-session.target
+**Run this after every edit, before restarting the live service.** Most bugs hit during development tonight were import-time failures — bad indentation, a stray `...` placeholder left in real code, an undefined-name typo, a method missing `self` in its signature — all things this suite catches in under a second, versus discovering them via a crash-looping systemd service and a `journalctl` round-trip.
 
-[Service]
-ExecStart=/usr/bin/python3 /path/to/lpd8_mapper.py
-Restart=on-failure
-RestartSec=2
+### TODO — testing & logging improvements
 
-[Install]
-WantedBy=default.target
-```
-
-```
-systemctl --user daemon-reload
-systemctl --user enable --now lpd8-mapper.service
-systemctl --user status lpd8-mapper.service
-journalctl --user -u lpd8-mapper.service -f
-```
-
-**Caution:** an unguarded dependency failure (e.g. `xdotool` missing) throws an unhandled exception that kills the *entire* service, not just the failing action — systemd then restart-loops it. Confirm all required external commands are installed before relying on the service; a crash loop here also leaves orphaned VLC processes running untracked, since each restart starts with no memory of the previous instance's `self.process`.
+- [ ] Add `ruff` (or `pyflakes`) as a static-analysis pass — catches undefined-name bugs (e.g. a variable referenced but never assigned) *before* runtime, which plain import-success tests can't catch if the bad code path isn't exercised at import time
+- [ ] Add attribute-existence tests per module (e.g. `hasattr(VLCInstance, "export_playlist")`) — catches the specific failure mode of a method accidentally landing outside its class body (wrong indentation), which import-success alone doesn't catch
+- [ ] Add a smoke test against a *running* VLC HTTP interface (`VIDEO_VLC.http_command()` returns a dict with `"state"`) — catches "this HTTP command doesn't actually exist" bugs (e.g. the fabricated `key`/`key-frame-next` command that silently no-op'd)
+- [ ] Switch from bare `print()` to Python's `logging` module with levels (`DEBUG`/`INFO`/`ERROR`), so `journalctl` output can be filtered by severity
+- [ ] Ensure every `except Exception:` block logs the exception (`except Exception as e: print(f"...: {e!r}")`) rather than silently swallowing it — a silent bare `except` hid the `current_index` `NameError` bug for an extended period during development
 
 ---
 
@@ -270,25 +269,25 @@ journalctl --user -u lpd8-mapper.service -f
 python3 -c "import mido; print(mido.get_input_names())"
 ```
 
-Install the RtMidi backend if missing: `python3 -m pip install python-rtmidi`.
-
-**VLC controls do nothing** — confirm the relevant instance is listening on its configured port:
+**VLC controls do nothing** — confirm the HTTP interface is actually listening:
 
 ```
-ss -ltn | grep -E '4212|4213'
+curl -u ":videopass" "http://127.0.0.1:8081/requests/status.json"
 ```
 
-If VLC was started manually without `--extraintf=rc` on the matching port, the mapper can't reach it.
+(replace `videopass` with your configured `http_password`). If this fails, check the journal for whether VLC's HTTP module actually bound on startup.
 
-**Video window doesn't raise** — confirm `xdotool` is installed and you're on X11 (`echo $XDG_SESSION_TYPE`); this feature has no Wayland equivalent implemented.
+**VLC keeps re-launching instead of toggling** — this was previously caused by VLC's RC interface being silently dropped when loaded alongside HTTP (`--extraintf=rc,http` limitation); the HTTP-only refactor should have eliminated this class of bug entirely. If it recurs, confirm `is_running()` is actually able to reach the HTTP port.
+
+**Video doesn't open on the target screen** — confirm the configured `target_screen` exactly matches `xrandr --listmonitors` output; check the journal for `couldn't resolve screen '...'` messages, which list the actually-detected output names if no match is found.
+
+**Mode LED doesn't show after switching via PROG CHNG** — expected if you haven't returned to PAD mode yet; LEDs only render in PAD mode. A retry loop re-asserts the LED for ~4 seconds after any switch. If it's still dark after returning to PAD mode within that window, press any pad — this also re-asserts current mode LEDs as a fallback.
 
 **Monitor toggle does nothing** — check actual output names:
 
 ```
 kscreen-doctor output
 ```
-
-The script expects `DP-1` and `DP-2`; update `system_actions.py` if your outputs use different names.
 
 **Volume control does nothing** — test the sink directly:
 
@@ -297,21 +296,17 @@ pactl get-default-sink
 pactl set-sink-volume @DEFAULT_SINK@ 50%
 ```
 
-**Screenshot does nothing** — test Spectacle directly:
-
-```
-spectacle -b -o /tmp/test-screenshot.png -m -n
-```
-
 ---
 
 ## Known limitations
 
-- `xdotool`-based window raising requires X11; no Wayland path exists yet.
-- PROG CHNG programs 4–7 are intentionally unmapped.
-- `save_and_quit()` blocks the calling thread for up to ~3 seconds if VLC doesn't respond to `SIGTERM` promptly, before falling back to `SIGKILL`. Since this runs inside the MIDI message-handling loop, a hung VLC process delays processing of the next pad/knob event for that window.
-- Thread safety for VLC RC commands is enforced via a per-instance `threading.Lock()`, since the jog/shuttle repeat thread and other actions may issue commands concurrently.
-- Playlist filenames and the OBS/screenshot leaf paths in `config.py` are still literal strings — only directory roots are resolved via `Path.home()`.
+- `xdotool`-based window raising and screen-targeting require X11; no Wayland path exists.
+- VLC frame-stepping: forward-only (keyboard simulation, requires window focus), backward frame-stepping does not exist in VLC at all.
+- Modes 3 and 5–8 are unbound placeholders.
+- P6–P8 are unbound in every mode.
+- `save_and_quit()` (VLC) blocks briefly waiting on the HTTP status fetch and on `SIGTERM`/`wait(timeout=3)` before falling back to `SIGKILL` — a hung VLC process delays the next MIDI event's processing for that window.
+- `target_screen` resolution depends on `xrandr` output naming staying stable; a monitor/cable change may require updating `config.py`.
+- No automated tests beyond import-smoke-tests yet (see TODO above).
 
 ---
 
