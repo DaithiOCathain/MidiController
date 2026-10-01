@@ -23,9 +23,9 @@ PAD_PRESS_BY_MODE = {
         40: save_and_quit_vlc,
     },
     2: {  # MPV
-        36: toggle_or_launch_mpv,
-        37: send_mpv_command(["playlist-next"]),
-        40: save_and_quit_mpv,
+        37: toggle_or_launch_mpv,
+        38: send_mpv_command(["playlist-next"]),
+        41: save_and_quit_mpv,
         # P3/P4 left blank per spec
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder

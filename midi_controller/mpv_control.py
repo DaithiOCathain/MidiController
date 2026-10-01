@@ -8,6 +8,8 @@ from .config import MPV_SOCKET_PATH, MPV_PLAYLIST
 from .scrub import scrub_delta, scrub_seconds
 
 from .config import RESUME_FILE
+from .screens import resolve_screen_number
+from .config import MPV_SOCKET_PATH, MPV_PLAYLIST, MPV_TARGET_SCREEN
 
 
 def send_mpv_command(command):
@@ -49,14 +51,22 @@ def mpv_get_property(prop):
 def toggle_or_launch_mpv():
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5)
             s.connect(MPV_SOCKET_PATH)
             s.sendall(json.dumps({"command": ["cycle", "pause"]}).encode() + b"\n")
     except (FileNotFoundError, ConnectionRefusedError):
+        screen_args = []
+        screen_num = MPV_TARGET_SCREEN
+        if screen_num is not None:
+            screen_args = [f"--screen={screen_num}", f"--fs-screen={screen_num}"]
+        else:
+            print(f"MPV: couldn't resolve screen '{MPV_TARGET_SCREEN}', using default")
+
         subprocess.Popen([
             "mpv",
             "--player-operation-mode=pseudo-gui",
             f"--input-ipc-server={MPV_SOCKET_PATH}",
+            "--fullscreen",
+            *screen_args,
             "--",
             MPV_PLAYLIST,
         ])

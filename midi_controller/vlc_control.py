@@ -12,6 +12,8 @@ import urllib.parse
 import base64
 
 from .config import VIDEO_VLC_CONFIG
+from .keyboard_actions import make_key_action
+from .screens import resolve_screen_number
 
 
 class VLCInstance:
@@ -27,28 +29,6 @@ class VLCInstance:
         self.process = None
         self.launching = False
 
-    def resolve_screen_number(self, name):
-        try:
-            output = subprocess.check_output(["xrandr", "--listmonitors"], text=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return None
-
-        seen_names = []
-        for line in output.splitlines()[1:]:
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            index_str = parts[0].rstrip(":")
-            output_name = parts[-1]
-            seen_names.append(output_name)
-            if output_name == name:
-                try:
-                    return int(index_str)
-                except ValueError:
-                    pass
-
-        print(f"VLC [{self.name}]: screen '{name}' not found among {seen_names}")
-        return None
 
     def _auth_header(self):
         auth = base64.b64encode(f":{self.http_password}".encode()).decode()
@@ -118,7 +98,7 @@ class VLCInstance:
 
         screen_args = []
         if self.target_screen:
-            screen_num = self.resolve_screen_number(self.target_screen)
+            screen_num = resolve_screen_number(self.target_screen)
             if screen_num is not None:
                 screen_args = [f"--qt-fullscreen-screennumber={screen_num}"]
             else:
@@ -316,6 +296,19 @@ def _vlc_jog_start_repeat(command, interval, **params):
     _vlc_jog_state["thread"] = t
     t.start()
 
+def _vlc_jog_start_repeat_fn(fn, interval):
+    stop_event = threading.Event()
+
+    def loop():
+        while not stop_event.wait(interval):
+            fn()
+
+    t = threading.Thread(target=loop, daemon=True)
+    _vlc_jog_state["stop_event"] = stop_event
+    _vlc_jog_state["thread"] = t
+    t.start()
+
+_frame_next = make_key_action('e')
 
 def vlc_jog_knob(value):
     zone = _vlc_jog_classify(value)
@@ -325,8 +318,7 @@ def vlc_jog_knob(value):
         _vlc_jog_stop_repeat()
         if previous is not None and 80 <= previous <= 85:
             if value > previous:
-                make_key_action('e')
-            elif value < previous:
+                _frame_next()
         _vlc_jog_state["zone"] = zone
         _vlc_jog_state["value"] = value
         return
@@ -335,7 +327,7 @@ def vlc_jog_knob(value):
         if zone == "step_forward":
             _vlc_jog_stop_repeat()
             interval = 0.25 - ((value - 86) / 9.0) * 0.20
-            _vlc_jog_start_repeat("key", interval, val="key-frame-next")
+            _vlc_jog_start_repeat_fn(_frame_next, interval)
         _vlc_jog_state["value"] = value
         return
 

@@ -10,6 +10,8 @@ OBS_RESTART_SCRIPT = str(HOME / ".local" / "bin" / "restart-obs.sh")
 
 RESUME_FILE = str(HOME / ".vlc_resume.json")
 
+MPV_TARGET_SCREEN = "1"
+
 VIDEO_VLC_CONFIG = dict(
     name="video",
     host="127.0.0.1",
