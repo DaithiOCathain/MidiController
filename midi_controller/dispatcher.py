@@ -5,7 +5,7 @@ import time
 
 import mido
 
-from .mappings import PAD_PRESS_BY_MODE, PAD_PRESS_FIXED, PAD_RELEASE, PAD_PROGRAM_PRESS, CC_HANDLERS
+from .mappings import PAD_PRESS_BY_MODE, PAD_PRESS_FIXED, PAD_RELEASE, PAD_PROGRAM_PRESS, CC_HANDLERS_GLOBAL, CC_HANDLERS_BY_MODE
 from .pad_lights import get_outport, light_pad, stop_animation
 from .vlc_control import stop_video_jog
 from .scrub import fine_scrub_release
@@ -44,7 +44,9 @@ def handle_message(msg):
             apply_mode_leds()
 
     elif msg.type == "control_change":
-        handler = CC_HANDLERS.get(msg.control)
+        handler = CC_HANDLERS_GLOBAL.get(msg.control)
+        if handler is None:
+            handler = CC_HANDLERS_BY_MODE.get(get_current_mode(), {}).get(msg.control)
         if handler:
             handler(msg.value)
 

@@ -62,10 +62,30 @@ PAD_PROGRAM_PRESS = {
     3: _monitor_toggle_action,
 }
 
-CC_HANDLERS = {
-    1: animation_speed_knob,
-    3: vlc_absolute_seek_knob,
-    4: vlc_jog_knob,
-    5: mode_dial_knob,
+# mappings.py
+
+CC_HANDLERS_GLOBAL = {
+    1: mode_dial_knob,
     8: volume_knob,
 }
+
+CC_HANDLERS_BY_MODE = {
+    1: {  # VLC
+        3: vlc_absolute_seek_knob,
+        4: vlc_jog_knob,
+    },
+    2: {  # MPV
+        5: mpv_seek_scrub_knob,
+    },
+    3: {},
+    4: {},
+    5: {},
+    6: {},
+    7: {},
+    8: {},
+}
+
+for _mode, _handlers in CC_HANDLERS_BY_MODE.items():
+    _overlap = set(_handlers) & set(CC_HANDLERS_GLOBAL)
+    if _overlap:
+        raise ValueError(f"Mode {_mode} defines global CC(s) {_overlap} — remove from per-mode dict")
