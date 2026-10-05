@@ -2,7 +2,6 @@ import threading
 
 import mido
 
-
 _outport = None
 _animation_stop = None
 _animation_speed = 1.0

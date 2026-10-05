@@ -2,8 +2,8 @@ import threading
 import time
 
 from .pad_lights import light_pad, stop_animation
-from .vlc_control import stop_video_jog
 from .scrub import fine_scrub_release
+from .vlc_control import stop_video_jog
 
 _current_mode = 4
 _led_retry_stop = None

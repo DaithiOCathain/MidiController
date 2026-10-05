@@ -2,14 +2,14 @@
 # no frame-step command. This zone silently no-ops until fixed (see TODO
 # in mappings.py for the planned keyboard-simulation approach).
 
+import base64
+import json
 import os
 import subprocess
 import threading
 import time
-import json
-import urllib.request
 import urllib.parse
-import base64
+import urllib.request
 
 from .config import VIDEO_VLC_CONFIG
 from .keyboard_actions import make_key_action
@@ -309,6 +309,11 @@ def _vlc_jog_start_repeat_fn(fn, interval):
     t.start()
 
 _frame_next = make_key_action('e')
+
+def vlc_volume_knob(value):
+    vlc_vol = round(value / 127 * 256)
+    VIDEO_VLC.http_command("volume", val=vlc_vol)
+    print(f"VLC volume: {vlc_vol}/256")
 
 def vlc_jog_knob(value):
     zone = _vlc_jog_classify(value)

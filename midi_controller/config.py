@@ -9,6 +9,7 @@ SCREENSHOT_PATH = str(HOME / "sofa_screenshot.png")
 OBS_RESTART_SCRIPT = str(HOME / ".local" / "bin" / "restart-obs.sh")
 
 RESUME_FILE = str(HOME / ".vlc_resume.json")
+SOUND_DIR = str(HOME / "Sounds")
 
 MPV_TARGET_SCREEN = "1"
 

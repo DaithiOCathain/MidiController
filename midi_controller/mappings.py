@@ -1,27 +1,37 @@
 from .keyboard_actions import make_key_action
-from .mpv_control import send_mpv_command, mpv_seek_scrub_knob, toggle_or_launch_mpv, save_and_quit_mpv
-from .vlc_control import (
-    VIDEO_VLC,
-    video_toggle_and_raise,
-    vlc_absolute_seek_knob,
-    vlc_seek_relative,
-    vlc_jog_knob,
-    save_and_quit_vlc,
+from .modes import mode_dial_knob
+from .mpv_control import (
+    mpv_save_and_quit,
+    mpv_seek_scrub_knob,
+    mpv_volume_knob,
+    send_mpv_command,
+    toggle_or_launch_mpv,
 )
-from .system_actions import make_monitor_toggle_action, toggle_mute, restart_obs, volume_knob
 from .pad_lights import (
-    animation_chase,
-    animation_bounce,
     animation_alternate,
-    animation_strobe,
-    animation_scan,
-    animation_ripple,
-    animation_checkerboard,
     animation_binary_grid,
-    animation_speed_knob,
+    animation_bounce,
+    animation_checkerboard,
+    animation_ripple,
+    animation_scan,
+    animation_strobe,
     stop_animation,
 )
-from .modes import mode_dial_knob
+from .soundboard import build_soundboard_mode
+from .system_actions import (
+    make_monitor_toggle_action,
+    restart_obs,
+    toggle_mute,
+    volume_knob,
+)
+from .vlc_control import (
+    save_and_quit_vlc,
+    video_toggle_and_raise,
+    vlc_absolute_seek_knob,
+    vlc_jog_knob,
+    vlc_seek_relative,
+    vlc_volume_knob,
+)
 
 PAD_PRESS_BY_MODE = {
     1: {  # VLC video
@@ -34,9 +44,10 @@ PAD_PRESS_BY_MODE = {
     2: {  # MPV
         37: toggle_or_launch_mpv,
         38: send_mpv_command(["playlist-next"]),
-        41: save_and_quit_mpv,
+        41: mpv_save_and_quit,
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
+    5: build_soundboard_mode(),
     8: {  # Pad animations
         36: animation_bounce,
         37: animation_alternate,
@@ -62,10 +73,9 @@ PAD_PROGRAM_PRESS = {
     3: _monitor_toggle_action,
 }
 
-# mappings.py
 
 CC_HANDLERS_GLOBAL = {
-    1: mode_dial_knob,
+    5: mode_dial_knob,
     8: volume_knob,
 }
 
@@ -73,9 +83,11 @@ CC_HANDLERS_BY_MODE = {
     1: {  # VLC
         3: vlc_absolute_seek_knob,
         4: vlc_jog_knob,
+        7: vlc_volume_knob,
     },
     2: {  # MPV
-        5: mpv_seek_scrub_knob,
+        2: mpv_seek_scrub_knob,
+        7: mpv_volume_knob,
     },
     3: {},
     4: {},
@@ -84,6 +96,7 @@ CC_HANDLERS_BY_MODE = {
     7: {},
     8: {},
 }
+
 
 for _mode, _handlers in CC_HANDLERS_BY_MODE.items():
     _overlap = set(_handlers) & set(CC_HANDLERS_GLOBAL)

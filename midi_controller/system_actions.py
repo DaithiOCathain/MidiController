@@ -1,6 +1,6 @@
 import subprocess
 
-from .config import SCREENSHOT_PATH, OBS_RESTART_SCRIPT
+from .config import OBS_RESTART_SCRIPT, SCREENSHOT_PATH
 
 
 def make_screenshot_action():

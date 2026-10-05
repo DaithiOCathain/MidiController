@@ -1,15 +1,11 @@
-import os
 import json
+import os
 import socket
 import subprocess
 import threading
 
-from .config import MPV_SOCKET_PATH, MPV_PLAYLIST
+from .config import MPV_PLAYLIST, MPV_SOCKET_PATH, MPV_TARGET_SCREEN, RESUME_FILE
 from .scrub import scrub_delta, scrub_seconds
-
-from .config import RESUME_FILE
-from .screens import resolve_screen_number
-from .config import MPV_SOCKET_PATH, MPV_PLAYLIST, MPV_TARGET_SCREEN
 
 
 def send_mpv_command(command):
@@ -45,8 +41,26 @@ def mpv_get_property(prop):
                         continue
                     if msg.get("request_id") == 1:
                         return msg.get("data")
-    except (FileNotFoundError, ConnectionRefusedError, socket.timeout, OSError):
+    except (TimeoutError, FileNotFoundError, ConnectionRefusedError, OSError):
         return None
+
+
+def mpv_set_property(prop, value):
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)
+            s.connect(MPV_SOCKET_PATH)
+            s.sendall(
+                json.dumps({"command": ["set_property", prop, value]}).encode() + b"\n"
+            )
+    except (TimeoutError, FileNotFoundError, ConnectionRefusedError, OSError):
+        pass
+
+
+def mpv_volume_knob(value):
+    pct = round(value / 127 * 100)
+    mpv_set_property("volume", pct)
+    print(f"MPV volume: {pct}%")
 
 def toggle_or_launch_mpv():
     try:

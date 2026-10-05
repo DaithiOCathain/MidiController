@@ -1,15 +1,16 @@
 import sys
 
-import threading
-import time
-
 import mido
 
-from .mappings import PAD_PRESS_BY_MODE, PAD_PRESS_FIXED, PAD_RELEASE, PAD_PROGRAM_PRESS, CC_HANDLERS_GLOBAL, CC_HANDLERS_BY_MODE
-from .pad_lights import get_outport, light_pad, stop_animation
-from .vlc_control import stop_video_jog
-from .scrub import fine_scrub_release
-from .modes import set_mode, apply_mode_leds, get_current_mode, MODE_NOTES
+from .mappings import (
+    CC_HANDLERS_BY_MODE,
+    CC_HANDLERS_GLOBAL,
+    PAD_PRESS_BY_MODE,
+    PAD_PRESS_FIXED,
+    PAD_PROGRAM_PRESS,
+    PAD_RELEASE,
+)
+from .modes import MODE_NOTES, apply_mode_leds, get_current_mode, set_mode
 
 MODE_PROGRAMS = {4: 1, 5: 2, 6: 3, 7: 4}
 
@@ -47,6 +48,7 @@ def handle_message(msg):
         handler = CC_HANDLERS_GLOBAL.get(msg.control)
         if handler is None:
             handler = CC_HANDLERS_BY_MODE.get(get_current_mode(), {}).get(msg.control)
+        print(f"CC: control={msg.control}, value={msg.value}, mode={get_current_mode()}, handler={handler}")
         if handler:
             handler(msg.value)
 
