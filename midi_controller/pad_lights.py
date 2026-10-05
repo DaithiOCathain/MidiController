@@ -1,11 +1,11 @@
 import threading
-import time
 
 import mido
 
 
 _outport = None
 _animation_stop = None
+_animation_speed = 1.0
 
 ALL_NOTES = [36, 37, 38, 39, 40, 41, 42, 43]
 
@@ -13,6 +13,8 @@ TOP = ALL_NOTES[:4]
 BOTTOM = ALL_NOTES[4:]
 ROWS = (TOP, BOTTOM)
 
+def _wait(stop_event, interval):
+    return stop_event.wait(interval * _animation_speed)
 
 def get_outport():
     global _outport
@@ -25,6 +27,12 @@ def get_outport():
 
     return _outport
 
+def animation_speed_knob(value):
+    """Set the global animation speed from MIDI CC 1 (0–127)."""
+    global _animation_speed
+
+    # 0 = fastest, 127 = slowest
+    _animation_speed = 0.25 + (value / 127) * 3.75
 
 def light_pad(note, on=True):
     outport = get_outport()
@@ -75,7 +83,8 @@ def animation_chase(interval=0.12):
             note = ALL_NOTES[i % len(ALL_NOTES)]
 
             light_pad(note, on=True)
-            time.sleep(interval)
+            if _wait(stop_event, interval):
+                return
             light_pad(note, on=False)
 
             i += 1
@@ -92,7 +101,8 @@ def animation_bounce(interval=0.12):
             note = seq[i % len(seq)]
 
             light_pad(note, on=True)
-            time.sleep(interval)
+            if _wait(stop_event, interval):
+                return
             light_pad(note, on=False)
 
             i += 1
@@ -117,7 +127,8 @@ def animation_alternate(interval=0.25):
             for n in group_off:
                 light_pad(n, on=False)
 
-            time.sleep(interval)
+            if _wait(stop_event, interval):
+                return
             state = not state
 
     _start(loop)
@@ -131,7 +142,8 @@ def animation_strobe(interval=0.15):
             for n in ALL_NOTES:
                 light_pad(n, on=state)
 
-            time.sleep(interval)
+            if _wait(stop_event, interval):
+                return
             state = not state
 
     _start(loop)

@@ -18,6 +18,7 @@ from .pad_lights import (
     animation_ripple,
     animation_checkerboard,
     animation_binary_grid,
+    animation_speed_knob,
     stop_animation,
 )
 from .modes import mode_dial_knob
@@ -36,7 +37,7 @@ PAD_PRESS_BY_MODE = {
         41: save_and_quit_mpv,
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
-    4: {  # Pad animations
+    8: {  # Pad animations
         36: animation_bounce,
         37: animation_alternate,
         38: animation_strobe,
@@ -62,9 +63,9 @@ PAD_PROGRAM_PRESS = {
 }
 
 CC_HANDLERS = {
-    1: mode_dial_knob,
+    1: animation_speed_knob,
     3: vlc_absolute_seek_knob,
     4: vlc_jog_knob,
-    5: mpv_seek_scrub_knob,
+    5: mode_dial_knob,
     8: volume_knob,
 }
