@@ -32,3 +32,6 @@ def test_import_system_actions():
 
 def test_import_vlc_control():
     import midi_controller.vlc_control
+
+def test_import_smarthome():
+    import midi_controller.smarthome

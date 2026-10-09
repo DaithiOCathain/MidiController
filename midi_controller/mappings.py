@@ -17,6 +17,7 @@ from .pad_lights import (
     animation_strobe,
     stop_animation,
 )
+from .smarthome import build_smarthome_mode
 from .soundboard import build_soundboard_mode
 from .system_actions import (
     make_monitor_toggle_action,
@@ -48,6 +49,7 @@ PAD_PRESS_BY_MODE = {
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
     5: build_soundboard_mode(),
+    7: build_smarthome_mode(),
     8: {  # Pad animations
         36: animation_bounce,
         37: animation_alternate,

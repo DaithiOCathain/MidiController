@@ -3,6 +3,7 @@
 # in mappings.py for the planned keyboard-simulation approach).
 
 import base64
+import http.client
 import json
 import os
 import subprocess
@@ -46,8 +47,8 @@ class VLCInstance:
         try:
             with urllib.request.urlopen(req, timeout=2) as resp:
                 return json.loads(resp.read().decode())
-        except Exception:
-            return None
+        except (OSError, http.client.HTTPException, ValueError):
+            pass
 
     def is_running(self):
         return self.http_command() is not None
@@ -189,9 +190,8 @@ class VLCInstance:
         try:
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode())
-        except Exception as e:
-            print(f"VLC [{self.name}]: playlist export failed: {e!r}")
-            return
+        except (OSError, http.client.HTTPException, ValueError):
+            pass
 
         entries = []
 
@@ -321,9 +321,8 @@ def vlc_jog_knob(value):
     if 80 <= value <= 85:
         previous = _vlc_jog_state["value"]
         _vlc_jog_stop_repeat()
-        if previous is not None and 80 <= previous <= 85:
-            if value > previous:
-                _frame_next()
+        if previous is not None and 80 <= previous <= 85 and value > previous:
+            _frame_next()
         _vlc_jog_state["zone"] = zone
         _vlc_jog_state["value"] = value
         return

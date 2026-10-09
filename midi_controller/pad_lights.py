@@ -26,6 +26,15 @@ def get_outport():
 
     return _outport
 
+def reset_outport():
+    global _outport
+    if _outport is not None:
+        try:
+            _outport.close()
+        except Exception as e:  # noqa: BLE001 - port may already be gone
+            print(f"pad_lights: outport close failed: {e!r}")
+    _outport = None
+
 def animation_speed_knob(value):
     """Set the global animation speed from MIDI CC 1 (0–127)."""
     global _animation_speed

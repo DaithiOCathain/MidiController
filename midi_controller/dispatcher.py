@@ -1,4 +1,5 @@
 import sys
+import time
 
 import mido
 
@@ -10,7 +11,13 @@ from .mappings import (
     PAD_PROGRAM_PRESS,
     PAD_RELEASE,
 )
-from .modes import MODE_NOTES, apply_mode_leds, get_current_mode, set_mode
+from .modes import (
+    MODE_NOTES,
+    apply_mode_leds,
+    get_current_mode,
+    set_mode,
+)
+from .pad_lights import reset_outport
 
 MODE_PROGRAMS = {4: 1, 5: 2, 6: 3, 7: 4}
 
@@ -66,11 +73,19 @@ def handle_message(msg):
 
 def main():
     try:
-        port_name = find_port()
-        with mido.open_input(port_name) as inport:
-            print(f"Listening on {port_name} — Ctrl+C to stop")
-            set_mode(1)
-            for msg in inport:
-                handle_message(msg)
+        while True:
+            try:
+                port_name = find_port()
+            except RuntimeError:
+                time.sleep(2)
+                continue
+
+            reset_outport()
+            with mido.open_input(port_name, callback=handle_message):
+                print(f"Listening on {port_name} — Ctrl+C to stop")
+                set_mode(get_current_mode())
+                while port_name in mido.get_input_names():
+                    time.sleep(2)
+            print("LPD8 disconnected, waiting for it to return")
     except KeyboardInterrupt:
         sys.exit(0)
