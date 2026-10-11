@@ -3,6 +3,7 @@ import time
 
 import mido
 
+from .commands import start_command_server
 from .mappings import (
     CC_HANDLERS_BY_MODE,
     CC_HANDLERS_GLOBAL,
@@ -72,6 +73,7 @@ def handle_message(msg):
 
 
 def main():
+    start_command_server()
     try:
         while True:
             try:
