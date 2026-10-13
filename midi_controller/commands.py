@@ -2,9 +2,11 @@ import os
 import socket
 import threading
 
-from .pad_lights import animation_binary_grid, stop_animation
-from .vlc_control import video_toggle_and_raise
 from .mpv_control import toggle_or_launch_mpv
+from .pad_lights import animation_binary_grid, stop_animation
+from .players import MPV_PLAYER, VLC_PLAYER, activate
+from .smarthome import all_off, init_sockets
+from .vlc_control import video_toggle_and_raise
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
 
@@ -13,8 +15,22 @@ COMMANDS = {
     "stop_lights": stop_animation,
     "video_toggle": video_toggle_and_raise,
     "music_toggle": toggle_or_launch_mpv,
+    "stories": lambda: activate(VLC_PLAYER),
+    "tunes": lambda: activate(MPV_PLAYER)
 }
+COMMANDS["watch"] = lambda: activate(VLC_PLAYER)
+COMMANDS["music"] = lambda: activate(MPV_PLAYER)
 
+
+def _register_sockets():
+    for name, sock in init_sockets().items():
+        COMMANDS[f"{name}_on"] = lambda s=sock: s.set(True)
+        COMMANDS[f"{name}_off"] = lambda s=sock: s.set(False)
+        COMMANDS[f"{name}_toggle"] = sock.toggle
+    COMMANDS["sockets_all_off"] = all_off
+
+
+_register_sockets()
 
 def _handle(conn):
     with conn:

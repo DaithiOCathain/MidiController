@@ -5,7 +5,6 @@ from .mpv_control import (
     mpv_seek_scrub_knob,
     mpv_volume_knob,
     send_mpv_command,
-    toggle_or_launch_mpv,
 )
 from .pad_lights import (
     animation_alternate,
@@ -17,6 +16,7 @@ from .pad_lights import (
     animation_strobe,
     stop_animation,
 )
+from .players import MPV_PLAYER, VLC_PLAYER, activate
 from .smarthome import build_smarthome_mode
 from .soundboard import build_soundboard_mode
 from .system_actions import (
@@ -27,7 +27,6 @@ from .system_actions import (
 )
 from .vlc_control import (
     save_and_quit_vlc,
-    video_toggle_and_raise,
     vlc_absolute_seek_knob,
     vlc_jog_knob,
     vlc_seek_relative,
@@ -36,18 +35,19 @@ from .vlc_control import (
 
 PAD_PRESS_BY_MODE = {
     1: {  # VLC video
-        36: video_toggle_and_raise,
+        36: lambda: activate(VLC_PLAYER),
         37: lambda: vlc_seek_relative(-4),
         38: make_key_action('v'),
         39: make_key_action('b'),
         40: save_and_quit_vlc,
     },
     2: {  # MPV
-        37: toggle_or_launch_mpv,
+        37: lambda: activate(MPV_PLAYER),
         38: send_mpv_command(["playlist-next"]),
         41: mpv_save_and_quit,
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
+    4: {},  # Recording — placeholder
     5: build_soundboard_mode(),
     7: build_smarthome_mode(),
     8: {  # Pad animations

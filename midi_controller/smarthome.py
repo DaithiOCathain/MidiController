@@ -5,6 +5,8 @@ import tinytuya
 
 from .config import SOCKETS_FILE
 
+SOCKETS = {}
+
 
 class TuyaSocket:
     def __init__(self, name, dev_id, key, ip, version, dps="1"):
@@ -26,27 +28,50 @@ class TuyaSocket:
             connection_retry_limit=1,
         )
 
-    def toggle(self):
+    def _run(self, action):
         if not self._busy.acquire(blocking=False):
-            print(f"Socket [{self.name}]: toggle already in progress")
+            print(f"Socket [{self.name}]: busy, ignored")
             return
 
         def worker():
             try:
-                d = self._device()
-                status = d.status()
-                state = (status or {}).get("dps", {}).get(self.dps)
-                if state is None:
-                    print(f"Socket [{self.name}]: status read failed: {status!r}")
-                    return
-                result = d.set_status(not state, switch=int(self.dps))
-                print(f"Socket [{self.name}]: {'on' if state else 'off'} -> {'off' if state else 'on'} ({result!r})")
+                result = action(self._device())
+                if "Unreachable" in result or "failed" in result:
+                    print(f"Socket [{self.name}]: {result}, retrying once")
+                    result = action(self._device())
+                print(f"Socket [{self.name}]: {result}")
             except Exception as e:  # noqa: BLE001 - worker thread must log, not die silently
-                print(f"Socket [{self.name}]: toggle failed: {e!r}")
+                print(f"Socket [{self.name}]: failed: {e!r}")
             finally:
                 self._busy.release()
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def toggle(self):
+        def action(d):
+            status = d.status()
+            state = (status or {}).get("dps", {}).get(self.dps)
+            if state is None:
+                return f"status read failed: {status!r}"
+            d.set_status(not state, switch=int(self.dps))
+            return f"{'on' if state else 'off'} -> {'off' if state else 'on'}"
+
+        self._run(action)
+
+    def set(self, on):
+        def action(d):
+            status = d.status()
+            state = (status or {}).get("dps", {}).get(self.dps)
+            if state is None:
+                return f"status read failed: {status!r}"
+            if state == on:
+                return f"already {'on' if on else 'off'}"
+            result = d.set_status(on, switch=int(self.dps))
+            if result and "Error" in result:
+                return f"set failed: {result!r}"
+            return f"set {'on' if on else 'off'}"
+
+        self._run(action)
 
 
 def load_sockets():
@@ -69,6 +94,18 @@ def load_sockets():
     return sockets
 
 
+def init_sockets():
+    if not SOCKETS:
+        for s in load_sockets():
+            SOCKETS[s.name] = s
+    return SOCKETS
+
+
+def all_off():
+    for s in SOCKETS.values():
+        s.set(False)
+
+
 def build_smarthome_mode():
-    notes = [36, 37, 38, 39, 40, 41, 42, 43]  # P1-P8, in file order
-    return {note: s.toggle for note, s in zip(notes, load_sockets())}
+    notes = [36, 37, 38, 39, 40, 41, 42, 43]
+    return {note: s.toggle for note, s in zip(notes, init_sockets().values(), strict=False)}
