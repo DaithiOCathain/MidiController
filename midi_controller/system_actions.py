@@ -1,6 +1,6 @@
 import subprocess
 
-from .config import OBS_RESTART_SCRIPT, SCREENSHOT_PATH
+from .config import DESK_MONITORS, OBS_RESTART_SCRIPT, SCREENSHOT_PATH
 
 
 def make_screenshot_action():
@@ -9,20 +9,37 @@ def make_screenshot_action():
     return action
 
 
+_desk_off = False
+
+
+def _kscreen(action):
+    args = [f"output.{name}.{action}" for name in DESK_MONITORS]
+    subprocess.Popen(["kscreen-doctor", *args])
+
+
+def desk_monitors_off():
+    global _desk_off
+    print(f"Action: disabling {DESK_MONITORS}")
+    _kscreen("disable")
+    _desk_off = True
+
+
+def desk_monitors_on():
+    global _desk_off
+    print(f"Action: enabling {DESK_MONITORS}")
+    _kscreen("enable")
+    _desk_off = False
+
+
+def desk_monitors_toggle():
+    if _desk_off:
+        desk_monitors_on()
+    else:
+        desk_monitors_off()
+
+
 def make_monitor_toggle_action():
-    state = {"asleep": False}
-
-    def action():
-        if not state["asleep"]:
-            print("Action: Blanking DP-1 and DP-2 (DPMS off)")
-            subprocess.Popen(["kscreen-doctor", "output.DP-1.power.off", "output.DP-2.power.off"])
-            state["asleep"] = True
-        else:
-            print("Action: Restoring DP-1 and DP-2 (DPMS on)")
-            subprocess.Popen(["kscreen-doctor", "output.DP-1.power.on", "output.DP-2.power.on"])
-            state["asleep"] = False
-
-    return action
+    return desk_monitors_toggle
 
 
 def toggle_mute():

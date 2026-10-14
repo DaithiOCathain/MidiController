@@ -2,6 +2,7 @@ from pathlib import Path
 
 HOME = Path.home()
 
+DESK_MONITORS = ["DP-1", "DP-2"]
 MPV_SOCKET_PATH = "/tmp/mpvsocket"
 MPV_PLAYLIST = str(HOME / "Documents" / "audio.m3u")
 SOCKETS_FILE = str(HOME / ".config" / "lpd8-mapper" / "sockets.json")

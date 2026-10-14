@@ -6,6 +6,7 @@ from .mpv_control import toggle_or_launch_mpv
 from .pad_lights import animation_binary_grid, stop_animation
 from .players import MPV_PLAYER, VLC_PLAYER, activate, skip, skip_back, skip_random
 from .smarthome import all_off, init_sockets
+from .system_actions import desk_monitors_off, desk_monitors_on
 from .vlc_control import video_toggle_and_raise
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
@@ -23,6 +24,8 @@ COMMANDS["music"] = lambda: activate(MPV_PLAYER)
 COMMANDS["next_track"] = skip
 COMMANDS["prev_track"] = skip_back
 COMMANDS["random_track"] = skip_random
+COMMANDS["desk_monitors_off"] = desk_monitors_off
+COMMANDS["desk_monitors_on"] = desk_monitors_on
 
 
 def _register_sockets():
