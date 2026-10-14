@@ -1,3 +1,4 @@
+import random
 import subprocess
 import threading
 import time
@@ -60,6 +61,18 @@ class Player:
 
     def toggle_pause(self):
         raise NotImplementedError
+    
+    def is_playing(self):
+        raise NotImplementedError
+
+    def next_track(self):
+        raise NotImplementedError
+
+    def prev_track(self):
+        raise NotImplementedError
+
+    def random_track(self):
+        raise NotImplementedError
 
     def make_room(self):
         self.pause()
@@ -82,6 +95,15 @@ class VLCPlayer(Player):
             return None
         return int(out[0]) if out else None
 
+    def is_playing(self):
+        return self._state() == "playing"
+
+    def next_track(self):
+        self.vlc.http_command("pl_next")
+
+    def prev_track(self):
+        self.vlc.http_command("pl_previous")
+    
     def is_running(self):
         return self.vlc.is_running()
 
@@ -135,6 +157,23 @@ class MPVPlayer(Player):
     def launch(self):
         toggle_or_launch_mpv()
 
+    def is_playing(self):
+        return mpv_get_property("pause") is False
+
+    def next_track(self):
+        send_mpv_command(["playlist-next"])()
+
+    def prev_track(self):
+        send_mpv_command(["playlist-prev"])()
+
+    def random_track(self):
+        count = mpv_get_property("playlist-count")
+        current = mpv_get_property("playlist-pos")
+        if not count:
+            return
+        choices = [i for i in range(count) if i != current] or [0]
+        send_mpv_command(["playlist-play-index", random.choice(choices)])()
+
     def show(self):
         _xdotool_pid(mpv_get_property("pid"), "windowactivate")
         mpv_set_property("fullscreen", True)
@@ -171,3 +210,33 @@ def activate(player):
         _active = player
     finally:
         _lock.release()
+
+def current_player():
+    playing = [p for p in PLAYERS if p.is_running() and p.is_playing()]
+    if _active in playing:
+        return _active
+    if playing:
+        return playing[0]
+    return _active if _active is not None and _active.is_running() else None
+
+
+def skip():
+    player = current_player()
+    if player is None:
+        print("players: nothing running to skip")
+        return
+    player.next_track()
+
+def skip_random():
+    player = current_player()
+    if player is None:
+        print("players: nothing running to randomise")
+        return
+    player.random_track()
+
+def skip_back():
+    player = current_player()
+    if player is None:
+        print("players: nothing running to go back on")
+        return
+    player.prev_track()

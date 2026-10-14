@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import socket
 import subprocess
 import threading
@@ -81,6 +82,7 @@ def toggle_or_launch_mpv():
             f"--input-ipc-server={MPV_SOCKET_PATH}",
             "--fullscreen",
             *screen_args,
+            f"--playlist-start={_random_start_index()}",
             "--",
             MPV_PLAYLIST,
         ])
@@ -134,3 +136,11 @@ def save_and_quit_mpv():
             _mpv_save_lock.release()
 
     threading.Thread(target=worker, daemon=True).start()
+
+def _random_start_index():
+    try:
+        with open(MPV_PLAYLIST) as f:
+            count = sum(1 for line in f if line.strip() and not line.startswith("#"))
+    except OSError:
+        return 0
+    return random.randrange(count) if count else 0
