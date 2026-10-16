@@ -1,12 +1,13 @@
 import os
 import socket
 import threading
+from functools import partial
 
 from .mpv_control import toggle_or_launch_mpv
 from .pad_lights import animation_binary_grid, stop_animation
 from .players import MPV_PLAYER, VLC_PLAYER, activate, skip, skip_back, skip_random
-from .smarthome import all_off, init_sockets
-from .system_actions import desk_monitors_off, desk_monitors_on
+from .smarthome import all_off, all_on, init_sockets
+from .system_actions import desk_monitors_off, desk_monitors_on, set_volume_percent
 from .vlc_control import video_toggle_and_raise
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
@@ -28,12 +29,17 @@ COMMANDS["desk_monitors_off"] = desk_monitors_off
 COMMANDS["desk_monitors_on"] = desk_monitors_on
 
 
+for _name, _pct in {"one": 20, "two": 40, "three": 60, "four": 80, "five": 100}.items():
+    COMMANDS[f"volume_{_name}"] = partial(set_volume_percent, _pct)
+
+
 def _register_sockets():
     for name, sock in init_sockets().items():
         COMMANDS[f"{name}_on"] = lambda s=sock: s.set(True)
         COMMANDS[f"{name}_off"] = lambda s=sock: s.set(False)
         COMMANDS[f"{name}_toggle"] = sock.toggle
     COMMANDS["sockets_all_off"] = all_off
+    COMMANDS["sockets_all_on"] = all_on
 
 
 _register_sockets()

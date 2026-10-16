@@ -117,11 +117,16 @@ class VLCInstance:
             self.playlist,
         ]
 
+
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "xcb"
+
         try:
-            self.process = subprocess.Popen(args)
+            self.process = subprocess.Popen(args, env=env)
         except Exception:
             self.launching = False
             raise
+
 
         self.start_playlist_export_timer()
 

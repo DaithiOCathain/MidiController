@@ -50,6 +50,9 @@ def restart_obs():
     subprocess.Popen([OBS_RESTART_SCRIPT])
 
 
+def set_volume_percent(pct):
+    subprocess.Popen(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{pct}%"])
+
+
 def volume_knob(value):
-    pct = round(value / 127 * 100)
-    subprocess.Popen(f"pactl set-sink-volume @DEFAULT_SINK@ {pct}%", shell=True)
+    set_volume_percent(round(value / 127 * 100))

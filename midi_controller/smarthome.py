@@ -105,6 +105,10 @@ def all_off():
     for s in SOCKETS.values():
         s.set(False)
 
+def all_on():
+    for s in SOCKETS.values():
+        s.set(True)
+
 
 def build_smarthome_mode():
     notes = [36, 37, 38, 39, 40, 41, 42, 43]
