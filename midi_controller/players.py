@@ -3,6 +3,7 @@ import subprocess
 import threading
 import time
 
+from . import kwin
 from .mpv_control import (
     mpv_get_property,
     mpv_set_property,
@@ -10,9 +11,6 @@ from .mpv_control import (
     toggle_or_launch_mpv,
 )
 from .vlc_control import VIDEO_VLC
-
-
-from . import kwin
 
 
 class Player:

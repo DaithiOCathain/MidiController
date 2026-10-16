@@ -2,12 +2,10 @@ import sys
 import time
 
 import mido
+
 from . import kwin
-
-from .config import MEDIA_RULES
-
 from .commands import start_command_server
-
+from .config import MEDIA_RULES
 from .mappings import (
     CC_HANDLERS_BY_MODE,
     CC_HANDLERS_GLOBAL,
