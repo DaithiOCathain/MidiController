@@ -2,6 +2,8 @@ from pathlib import Path
 
 HOME = Path.home()
 
+MEDIA_OUTPUT = "DVI-I-1"
+MEDIA_RULES = {"mpv": MEDIA_OUTPUT, "vlc": MEDIA_OUTPUT}
 DESK_MONITORS = ["DP-1", "DP-2"]
 MPV_SOCKET_PATH = "/tmp/mpvsocket"
 MPV_PLAYLIST = str(HOME / "Documents" / "audio.m3u")
@@ -13,7 +15,6 @@ OBS_RESTART_SCRIPT = str(HOME / ".local" / "bin" / "restart-obs.sh")
 RESUME_FILE = str(HOME / ".vlc_resume.json")
 SOUND_DIR = str(HOME / "Sounds")
 
-MPV_TARGET_SCREEN = "1"
 
 VIDEO_VLC_CONFIG = {
     "name": "video",
@@ -22,6 +23,5 @@ VIDEO_VLC_CONFIG = {
     "http_password": "videopass",
     "playlist": str(HOME / "Documents" / "video.m3u"),
     "resume_file": RESUME_FILE,
-    "target_screen": "DVI-I-1",
     "extra_args": ["--fullscreen", "--no-spu", "--avcodec-hw=none"],
 }

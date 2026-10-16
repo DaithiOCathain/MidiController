@@ -12,35 +12,7 @@ from .mpv_control import (
 from .vlc_control import VIDEO_VLC
 
 
-def _xdotool_pid(pid, action):
-    if pid is None:
-        return
-    try:
-        subprocess.Popen(["xdotool", "search", "--pid", str(pid), action])
-    except FileNotFoundError:
-        print("players: xdotool not found")
-
-def _x_windows(pid, visible_only=True):
-    if pid is None:
-        return []
-    cmd = ["xdotool", "search", "--pid", str(pid)]
-    if visible_only:
-        cmd.append("--onlyvisible")
-    try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=2, check=False).stdout.split()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return []
-
-
-def _is_fullscreen(wid):
-    try:
-        out = subprocess.run(
-            ["xprop", "-id", wid, "_NET_WM_STATE"],
-            capture_output=True, text=True, timeout=2, check=False,
-        ).stdout
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-    return "_NET_WM_STATE_FULLSCREEN" in out
+from . import kwin
 
 
 class Player:
@@ -74,6 +46,9 @@ class Player:
     def random_track(self):
         raise NotImplementedError
 
+    def resume(self):
+        raise NotImplementedError
+
     def make_room(self):
         self.pause()
         self.hide()
@@ -95,6 +70,18 @@ class VLCPlayer(Player):
             return None
         return int(out[0]) if out else None
 
+    def hide(self):
+        kwin.hide("vlc")
+
+    def show(self):
+        kwin.show("vlc")
+        if self._state() == "paused":
+            self.vlc.http_command("pl_pause")
+
+    def toggle_pause(self):
+        self.vlc.http_command("pl_pause")
+        kwin.show("vlc")
+
     def is_playing(self):
         return self._state() == "playing"
 
@@ -113,6 +100,13 @@ class VLCPlayer(Player):
     def pause(self):
         if self._state() == "playing":
             self.vlc.http_command("pl_pause")
+    
+    def resume(self):
+        state = self._state()
+        if state == "paused":
+            self.vlc.http_command("pl_pause")
+        elif state == "stopped":
+            self.vlc.http_command("pl_play")
 
     def hide(self):
         windows = _x_windows(self._pid())
@@ -147,6 +141,9 @@ class MPVPlayer(Player):
 
     def pause(self):
         mpv_set_property("pause", True)
+
+    def resume(self):
+        mpv_set_property("pause", False)
 
     def next(self):
         mpv_set_property("pause", True)
@@ -191,14 +188,17 @@ _active = None
 _lock = threading.Lock()
 
 
-def activate(player):
+def activate(player, toggle=True):
     global _active
     if not _lock.acquire(blocking=False):
         print("players: activation in progress, ignored")
         return
     try:
         if _active is player and player.is_running():
-            player.toggle_pause()
+            if toggle:
+                player.toggle_pause()
+            else:
+                player.resume()
             return
         for other in PLAYERS:
             if other is not player and other.is_running():
@@ -240,3 +240,15 @@ def skip_back():
         print("players: nothing running to go back on")
         return
     player.prev_track()
+
+def pause_all():
+    for p in PLAYERS:
+        if p.is_running():
+            p.pause()
+
+def resume_current():
+    player = current_player()
+    if player is None:
+        print("players: nothing to resume")
+        return
+    player.resume()
