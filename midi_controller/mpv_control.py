@@ -5,7 +5,7 @@ import socket
 import subprocess
 import threading
 
-from .config import MPV_PLAYLIST, MPV_SOCKET_PATH, MPV_TARGET_SCREEN, RESUME_FILE
+from .config import MEDIA_OUTPUT, MPV_PLAYLIST, MPV_SOCKET_PATH, RESUME_FILE
 from .scrub import scrub_delta, scrub_seconds
 
 
@@ -69,19 +69,12 @@ def toggle_or_launch_mpv():
             s.connect(MPV_SOCKET_PATH)
             s.sendall(json.dumps({"command": ["cycle", "pause"]}).encode() + b"\n")
     except (FileNotFoundError, ConnectionRefusedError):
-        screen_args = []
-        screen_num = MPV_TARGET_SCREEN
-        if screen_num is not None:
-            screen_args = [f"--screen={screen_num}", f"--fs-screen={screen_num}"]
-        else:
-            print(f"MPV: couldn't resolve screen '{MPV_TARGET_SCREEN}', using default")
-
         subprocess.Popen([
             "mpv",
             "--player-operation-mode=pseudo-gui",
             f"--input-ipc-server={MPV_SOCKET_PATH}",
             "--fullscreen",
-            *screen_args,
+            f"--fs-screen-name={MEDIA_OUTPUT}",
             f"--playlist-start={_random_start_index()}",
             "--",
             MPV_PLAYLIST,

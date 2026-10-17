@@ -1,45 +1,25 @@
 import subprocess
 
-from .config import DESK_MONITORS, OBS_RESTART_SCRIPT, SCREENSHOT_PATH
+from .config import DESK_SERIALS, OBS_RESTART_SCRIPT, SCREENSHOT_PATH
 
+
+def _ddc_power(mode):
+    for sn in DESK_SERIALS:
+        subprocess.Popen(["ddcutil", "--sn", sn, "--noverify", "setvcp", "d6", mode])
+
+
+def desk_monitors_off():
+    _ddc_power("4")
+
+
+def desk_monitors_on():
+    _ddc_power("1")
 
 def make_screenshot_action():
     def action():
         subprocess.Popen(["spectacle", "-b", "-o", SCREENSHOT_PATH, "-m", "-n"])
     return action
 
-
-_desk_off = False
-
-
-def _kscreen(action):
-    args = [f"output.{name}.{action}" for name in DESK_MONITORS]
-    subprocess.Popen(["kscreen-doctor", *args])
-
-
-def desk_monitors_off():
-    global _desk_off
-    print(f"Action: disabling {DESK_MONITORS}")
-    _kscreen("disable")
-    _desk_off = True
-
-
-def desk_monitors_on():
-    global _desk_off
-    print(f"Action: enabling {DESK_MONITORS}")
-    _kscreen("enable")
-    _desk_off = False
-
-
-def desk_monitors_toggle():
-    if _desk_off:
-        desk_monitors_on()
-    else:
-        desk_monitors_off()
-
-
-def make_monitor_toggle_action():
-    return desk_monitors_toggle
 
 
 def toggle_mute():

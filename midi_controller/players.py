@@ -1,7 +1,6 @@
 import random
 import subprocess
 import threading
-import time
 
 from . import kwin
 from .mpv_control import (
@@ -106,31 +105,9 @@ class VLCPlayer(Player):
         elif state == "stopped":
             self.vlc.http_command("pl_play")
 
-    def hide(self):
-        windows = _x_windows(self._pid())
-        if any(_is_fullscreen(w) for w in windows):
-            self.vlc.http_command("fullscreen")
-            time.sleep(0.4)
-        for w in windows:
-            subprocess.Popen(["xdotool", "windowminimize", w])
 
     def launch(self):
         self.vlc.launch_or_toggle()
-
-    def show(self):
-        windows = _x_windows(self._pid(), visible_only=False)
-        for w in windows:
-            subprocess.Popen(["xdotool", "windowactivate", w])
-        time.sleep(0.3)
-        if windows and not any(_is_fullscreen(w) for w in windows):
-            self.vlc.http_command("fullscreen")
-        if self._state() == "paused":
-            self.vlc.http_command("pl_pause")
-
-    def toggle_pause(self):
-        self.vlc.http_command("pl_pause")
-        for w in _x_windows(self._pid(), visible_only=False):
-            subprocess.Popen(["xdotool", "windowactivate", w])
 
 
 class MPVPlayer(Player):
@@ -147,7 +124,12 @@ class MPVPlayer(Player):
         mpv_set_property("pause", True)
 
     def hide(self):
-        _xdotool_pid(mpv_get_property("pid"), "windowminimize")
+        kwin.hide("mpv")
+
+    def show(self):
+        kwin.show("mpv")
+        mpv_set_property("fullscreen", True)
+        mpv_set_property("pause", False)
 
     def launch(self):
         toggle_or_launch_mpv()
@@ -169,10 +151,6 @@ class MPVPlayer(Player):
         choices = [i for i in range(count) if i != current] or [0]
         send_mpv_command(["playlist-play-index", random.choice(choices)])()
 
-    def show(self):
-        _xdotool_pid(mpv_get_property("pid"), "windowactivate")
-        mpv_set_property("fullscreen", True)
-        mpv_set_property("pause", False)
 
     def toggle_pause(self):
         send_mpv_command(["cycle", "pause"])()

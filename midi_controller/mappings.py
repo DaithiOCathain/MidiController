@@ -20,7 +20,8 @@ from .players import MPV_PLAYER, VLC_PLAYER, activate
 from .smarthome import build_smarthome_mode
 from .soundboard import build_soundboard_mode
 from .system_actions import (
-    make_monitor_toggle_action,
+    desk_monitors_off,
+    desk_monitors_on,
     restart_obs,
     toggle_mute,
     volume_knob,
@@ -66,13 +67,12 @@ PAD_PRESS_FIXED = {}
 
 PAD_RELEASE = {}
 
-_monitor_toggle_action = make_monitor_toggle_action()
 
 PAD_PROGRAM_PRESS = {
-    0: _monitor_toggle_action,
+    0: desk_monitors_off,
     1: toggle_mute,
     2: restart_obs,
-    3: _monitor_toggle_action,
+    3: desk_monitors_on,
 }
 
 

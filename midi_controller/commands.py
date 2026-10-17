@@ -43,7 +43,7 @@ COMMANDS["music_pause"] = MPV_PLAYER.pause
 COMMANDS["video_play"] = lambda: activate(VLC_PLAYER, toggle=False)
 COMMANDS["video_pause"] = VLC_PLAYER.pause
 
-for _name, _pct in {"one": 20, "two": 40, "three": 60, "four": 80, "five": 100}.items():
+for _name, _pct in {"one": 10, "two": 15, "three": 20, "four": 25, "five": 30, "six": 40, "seven": 50, "eight": 60, "nine": 70, "ten": 80}.items():
     COMMANDS[f"volume_{_name}"] = partial(set_volume_percent, _pct)
 
 

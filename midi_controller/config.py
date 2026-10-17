@@ -4,7 +4,7 @@ HOME = Path.home()
 
 MEDIA_OUTPUT = "DVI-I-1"
 MEDIA_RULES = {"mpv": MEDIA_OUTPUT, "vlc": MEDIA_OUTPUT}
-DESK_MONITORS = ["DP-1", "DP-2"]
+DESK_SERIALS = ["29C2955Q7NRL", "HZBXY34"]
 MPV_SOCKET_PATH = "/tmp/mpvsocket"
 MPV_PLAYLIST = str(HOME / "Documents" / "audio.m3u")
 SOCKETS_FILE = str(HOME / ".config" / "lpd8-mapper" / "sockets.json")

@@ -29,6 +29,7 @@ class VLCInstance:
         self.extra_args = extra_args or []
         self.process = None
         self.launching = False
+        self._export_stop = None
 
 
     def _auth_header(self):
@@ -54,10 +55,17 @@ class VLCInstance:
         return self.http_command() is not None
 
     def start_playlist_export_timer(self, interval=600):
+        if self._export_stop is not None:
+            self._export_stop.set()
+        stop = threading.Event()
+        self._export_stop = stop
+
         def loop():
-            while True:
-                time.sleep(interval)
-                self.export_playlist()
+            while not stop.wait(interval):
+                try:
+                    self.export_playlist()
+                except Exception as e:  # noqa: BLE001
+                    print(f"VLC [{self.name}]: export failed: {e!r}")
 
         threading.Thread(target=loop, daemon=True).start()
 
@@ -188,6 +196,9 @@ class VLCInstance:
         else:
             print(f"VLC [{self.name}]: no tracked PID — kill manually")
 
+        if self._export_stop is not None:
+            self._export_stop.set()
+
     def export_playlist(self):
         url = f"http://{self.host}:{self.http_port}/requests/playlist.json"
         req = urllib.request.Request(url, headers=self._auth_header())
@@ -195,33 +206,32 @@ class VLCInstance:
         try:
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode())
-        except (OSError, http.client.HTTPException, ValueError):
-            pass
+        except (OSError, http.client.HTTPException, ValueError) as e:
+            print(f"VLC [{self.name}]: playlist fetch failed, not exporting: {e!r}")
+            return
 
         entries = []
 
         def walk(node):
             for child in node.get("children", []):
-                if "uri" in child:
-                    uri = child["uri"]
-                    if uri.startswith("file://"):
-                        path = urllib.parse.unquote(uri[len("file://"):])
-                        name = child.get("name", os.path.basename(path))
-                        entries.append((name, path))
+                uri = child.get("uri", "")
+                if uri.startswith("file://"):
+                    path = urllib.parse.unquote(uri[len("file://"):])
+                    entries.append((child.get("name", os.path.basename(path)), path))
                 walk(child)
 
         walk(data)
 
-        if entries:
-            with open(self.playlist, "w") as f:
-                f.write("#EXTM3U\n")
-                for name, path in entries:
-                    f.write(f"#EXTINF:-1,{name}\n")
-                    f.write(f"{path}\n")
-            print(f"VLC [{self.name}]: exported {len(entries)} items -> {self.playlist}")
-        else:
+        if not entries:
             print(f"VLC [{self.name}]: export produced no items, not overwriting")
+            return
 
+        tmp = f"{self.playlist}.tmp"
+        with open(tmp, "w") as f:
+            f.write("#EXTM3U\n")
+            f.writelines(f"#EXTINF:-1,{name}\n{path}\n" for name, path in entries)
+        os.replace(tmp, self.playlist)
+        print(f"VLC [{self.name}]: exported {len(entries)} items -> {self.playlist}")
 
 _vlc_save_lock = threading.Lock()
 
