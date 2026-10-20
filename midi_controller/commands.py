@@ -15,7 +15,14 @@ from .players import (
     skip_back,
     skip_random,
 )
-from .smarthome import all_off, all_on, init_sockets
+from .smarthome import (
+    PRESET_EVENING,
+    PRESET_OFF,
+    PRESET_WORK,
+    all_off,
+    all_on,
+    init_sockets,
+)
 from .system_actions import (
     desk_monitors_off,
     desk_monitors_on,
@@ -52,6 +59,9 @@ COMMANDS["video_pause"] = VLC_PLAYER.pause
 COMMANDS["windows_minimize"] = windows_minimize
 COMMANDS["windows_restore"] = windows_restore
 COMMANDS["windows_toggle"] = windows_toggle
+COMMANDS["lights_work"] = PRESET_WORK
+COMMANDS["lights_evening"] = PRESET_EVENING
+COMMANDS["lights_off"] = PRESET_OFF
 
 for _pct in range(10, 101, 10):
     COMMANDS[f"volume_{_pct}"] = partial(set_volume_percent, _pct)

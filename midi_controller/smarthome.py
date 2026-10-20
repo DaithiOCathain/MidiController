@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 
@@ -6,6 +7,89 @@ import tinytuya
 from .config import SOCKETS_FILE
 
 SOCKETS = {}
+
+class KasaBulb:
+    def __init__(self, name, ip):
+        self.name = name
+        self._hs = [0, 100]
+        self.ip = ip
+        self._lock = threading.Lock()
+        self._pending = {}
+        self._running = False
+
+    def _submit(self, key, value):
+        with self._lock:
+            self._pending[key] = value
+            if self._running:
+                return
+            self._running = True
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _worker(self):
+        try:
+            asyncio.run(self._drain())
+        except Exception as e:  # noqa: BLE001
+            print(f"Bulb [{self.name}]: failed: {e!r}")
+            with self._lock:
+                self._pending.clear()
+                self._running = False
+
+    async def _drain(self):
+        from kasa import Discover
+
+        dev = await Discover.discover_single(self.ip)
+        try:
+            while True:
+                with self._lock:
+                    if not self._pending:
+                        self._running = False
+                        return
+                    key = next(iter(self._pending))
+                    value = self._pending.pop(key)
+                await dev.update()
+                await self._apply(dev, key, value)
+        finally:
+            await dev.disconnect()
+
+    async def _apply(self, dev, key, value):
+        from kasa import Module
+
+        light = dev.modules.get(Module.Light)
+        if key != "power" and light is None:
+            return
+        if key == "brightness" and light.is_dimmable:
+            await light.set_brightness(value)
+        elif key == "color_temp" and light.is_variable_color_temp:
+            await light.set_color_temp(value)
+        elif key == "hsv" and light.is_color:
+            await light.set_hsv(*value)
+
+    def toggle(self):
+        self._submit("power", None)
+
+    def set(self, on):
+        self._submit("power", on)
+
+    def set_brightness(self, pct):
+        self._submit("brightness", pct)
+
+    def set_color_temp(self, kelvin):
+        self._submit("color_temp", kelvin)
+
+    def set_hue(self, degrees):
+        self._hs[0] = degrees
+        self._submit("hsv", tuple(self._hs))
+
+    def set_saturation(self, pct):
+        self._hs[1] = pct
+        self._submit("hsv", tuple(self._hs))
+
+    def apply(self, power, brightness=None, kelvin=None):
+        self._submit("power", power)
+        if brightness is not None:
+            self._submit("brightness", brightness)
+        if kelvin is not None:
+            self._submit("color_temp", kelvin)
 
 
 class TuyaSocket:
@@ -85,10 +169,13 @@ def load_sockets():
     sockets = []
     for entry in entries:
         try:
-            sockets.append(TuyaSocket(
-                entry["name"], entry["id"], entry["key"], entry["ip"],
-                entry.get("version", 3.3), entry.get("dps", "1"),
-            ))
+            if entry.get("type") == "kasa":
+                sockets.append(KasaBulb(entry["name"], entry["ip"]))
+            else:
+                sockets.append(TuyaSocket(
+                    entry["name"], entry["id"], entry["key"], entry["ip"],
+                    entry.get("version", 3.3), entry.get("dps", "1"),
+                ))
         except KeyError as err:
             print(f"Smarthome: entry {entry.get('name', '?')} missing {err}")
     return sockets
@@ -113,3 +200,38 @@ def all_on():
 def build_smarthome_mode():
     notes = [36, 37, 38, 39, 40, 41, 42, 43]
     return {note: s.toggle for note, s in zip(notes, init_sockets().values(), strict=False)}
+
+def bulb_knob(attr, scale):
+    def handler(value):
+        for bulb in SOCKETS.values():
+            if isinstance(bulb, KasaBulb):
+                getattr(bulb, attr)(scale(value))
+    return handler
+
+
+def brightness_scale(v):
+    return max(1, round(v / 127 * 100))
+
+
+def color_temp_scale(v):
+    return round(2500 + v / 127 * (9000 - 2500))
+
+
+def hue_scale(v):
+    return min(359, round(v / 127 * 360))
+
+def saturation_scale(v):
+    return round(v / 127 * 100)
+
+
+def bulb_preset(power, brightness=None, kelvin=None):
+    def action():
+        for bulb in SOCKETS.values():
+            if isinstance(bulb, KasaBulb):
+                bulb.apply(power, brightness, kelvin)
+    return action
+
+
+PRESET_WORK = bulb_preset(True, 100, 4000)
+PRESET_EVENING = bulb_preset(True, 30, 2700)
+PRESET_OFF = bulb_preset(False)

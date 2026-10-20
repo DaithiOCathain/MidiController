@@ -17,7 +17,17 @@ from .pad_lights import (
     stop_animation,
 )
 from .players import MPV_PLAYER, VLC_PLAYER, activate
-from .smarthome import build_smarthome_mode
+from .smarthome import (
+    PRESET_EVENING,
+    PRESET_OFF,
+    PRESET_WORK,
+    brightness_scale,
+    build_smarthome_mode,
+    bulb_knob,
+    color_temp_scale,
+    hue_scale,
+    saturation_scale,
+)
 from .soundboard import build_soundboard_mode
 from .system_actions import (
     desk_monitors_off,
@@ -49,8 +59,15 @@ PAD_PRESS_BY_MODE = {
     },
     3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
     4: {},  # Recording — placeholder
-    5: build_soundboard_mode(),
-    7: build_smarthome_mode(),
+    5: build_soundboard_mode(),    
+    7: {
+        **build_smarthome_mode(),
+        39: PRESET_WORK,
+        40: PRESET_EVENING,
+        41: PRESET_OFF,
+        42: desk_monitors_off,
+        43: desk_monitors_on,
+    },
     8: {  # Pad animations
         36: animation_bounce,
         37: animation_alternate,
@@ -94,8 +111,13 @@ CC_HANDLERS_BY_MODE = {
     3: {},
     4: {},
     5: {},
-    6: {},
-    7: {},
+    6: {},    
+    7: {
+        1: bulb_knob("set_brightness", brightness_scale),
+        2: bulb_knob("set_color_temp", color_temp_scale),
+        3: bulb_knob("set_hue", hue_scale),
+        4: bulb_knob("set_saturation", saturation_scale),
+    },
     8: {},
 }
 
