@@ -16,7 +16,14 @@ from .players import (
     skip_random,
 )
 from .smarthome import all_off, all_on, init_sockets
-from .system_actions import desk_monitors_off, desk_monitors_on, set_volume_percent
+from .system_actions import (
+    desk_monitors_off,
+    desk_monitors_on,
+    set_volume_percent,
+    windows_minimize,
+    windows_restore,
+    windows_toggle,
+)
 from .vlc_control import video_toggle_and_raise
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
@@ -42,9 +49,12 @@ COMMANDS["music_play"] = lambda: activate(MPV_PLAYER, toggle=False)
 COMMANDS["music_pause"] = MPV_PLAYER.pause
 COMMANDS["video_play"] = lambda: activate(VLC_PLAYER, toggle=False)
 COMMANDS["video_pause"] = VLC_PLAYER.pause
+COMMANDS["windows_minimize"] = windows_minimize
+COMMANDS["windows_restore"] = windows_restore
+COMMANDS["windows_toggle"] = windows_toggle
 
-for _name, _pct in {"one": 10, "two": 15, "three": 20, "four": 25, "five": 30, "six": 40, "seven": 50, "eight": 60, "nine": 70, "ten": 80}.items():
-    COMMANDS[f"volume_{_name}"] = partial(set_volume_percent, _pct)
+for _pct in range(10, 101, 10):
+    COMMANDS[f"volume_{_pct}"] = partial(set_volume_percent, _pct)
 
 
 def _register_sockets():

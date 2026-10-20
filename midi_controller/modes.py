@@ -5,7 +5,7 @@ from .pad_lights import light_pad, stop_animation
 from .scrub import fine_scrub_release
 from .vlc_control import stop_video_jog
 
-_current_mode = 4
+_current_mode = 2
 _led_retry_stop = None
 
 MODE_NOTES = {1: 36, 2: 37, 3: 38, 4: 39, 5: 40, 6: 41, 7: 42, 8: 43}
