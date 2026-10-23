@@ -32,6 +32,16 @@ from .system_actions import (
     windows_toggle,
 )
 from .vlc_control import video_toggle_and_raise, vlc_seek_relative
+from .scenes import red_alert, red_alert_off
+
+
+ALIASES = {
+    "amplifier": "socket1",
+    "couch": "bulb1",
+    "fridge": "bulb2",
+    "kitchen": "socket3",
+    "bedroom": "socket4",
+}
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
 
@@ -43,6 +53,9 @@ COMMANDS = {
     "stories": lambda: activate(VLC_PLAYER),
     "tunes": lambda: activate(MPV_PLAYER)
 }
+
+COMMANDS["red_alert"] = red_alert
+COMMANDS["stand_down"] = red_alert_off
 COMMANDS["watch"] = lambda: activate(VLC_PLAYER)
 COMMANDS["music"] = lambda: activate(MPV_PLAYER)
 COMMANDS["next_track"] = skip
@@ -79,7 +92,18 @@ def _register_sockets():
     COMMANDS["sockets_all_on"] = all_on
 
 
+def _register_aliases():
+    for friendly, real in ALIASES.items():
+        for suffix in ("on", "off", "toggle"):
+            target = COMMANDS.get(f"{real}_{suffix}")
+            if target is None:
+                print(f"alias: {friendly}_{suffix} -> {real}_{suffix} not found")
+                continue
+            COMMANDS[f"{friendly}_{suffix}"] = target
+
+
 _register_sockets()
+_register_aliases()
 
 
 def _flash(name):
