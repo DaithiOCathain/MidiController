@@ -1,4 +1,17 @@
-from .keyboard_actions import make_key_action
+from .keyboard_actions import make_key_action, make_named_key_action
+from .players import MPV_PLAYER, ULTRASTAR_PLAYER, VLC_PLAYER, activate
+
+_nav_last = {"v": None}
+
+
+def ultrastar_nav_knob(value):
+    prev, _nav_last["v"] = _nav_last["v"], value
+    if prev is None or value == prev:
+        return
+    key = make_named_key_action("down" if value > prev else "up")
+    for _ in range(min(abs(value - prev), 5)):
+        key()
+
 from .modes import mode_dial_knob
 from .mpv_control import (
     mpv_save_and_quit,
@@ -16,7 +29,6 @@ from .pad_lights import (
     animation_strobe,
     stop_animation,
 )
-from .players import MPV_PLAYER, VLC_PLAYER, activate
 from .smarthome import (
     PRESET_EVENING,
     PRESET_OFF,
@@ -57,7 +69,16 @@ PAD_PRESS_BY_MODE = {
         38: send_mpv_command(["playlist-next"]),
         41: mpv_save_and_quit,
     },
-    3: {},  # Karaoke (Ultrastar Deluxe) — placeholder
+    3: {  # Karaoke (Ultrastar Deluxe)
+        36: lambda: activate(ULTRASTAR_PLAYER),
+        37: make_named_key_action("up"),
+        38: make_named_key_action("down"),
+        39: make_named_key_action("enter"),
+        40: make_named_key_action("esc"),
+        41: make_named_key_action("space"),
+        42: make_named_key_action("left"),
+        43: make_named_key_action("right"),
+    },    
     4: {},  # Recording — placeholder
     5: build_soundboard_mode(),    
     7: {
@@ -108,7 +129,7 @@ CC_HANDLERS_BY_MODE = {
         2: mpv_seek_scrub_knob,
         7: mpv_volume_knob,
     },
-    3: {},
+    3: {2: ultrastar_nav_knob},
     4: {},
     5: {},
     6: {},    

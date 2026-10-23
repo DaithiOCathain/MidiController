@@ -13,6 +13,8 @@ SCREENSHOT_PATH = str(HOME / "sofa_screenshot.png")
 OBS_RESTART_SCRIPT = str(HOME / ".local" / "bin" / "restart-obs.sh")
 
 RESUME_FILE = str(HOME / ".vlc_resume.json")
+ULTRASTAR_CMD = ["ultrastardx"]  # flatpak: ["flatpak", "run", "eu.usdx.UltraStarDeluxe"]
+MEDIA_RULES = {"mpv": MEDIA_OUTPUT, "vlc": MEDIA_OUTPUT, "ultrastar": MEDIA_OUTPUT}
 SOUND_DIR = str(HOME / "Sounds")
 
 

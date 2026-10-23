@@ -3,7 +3,7 @@ import socket
 import threading
 from functools import partial
 
-from .mpv_control import toggle_or_launch_mpv
+from .mpv_control import send_mpv_command, toggle_or_launch_mpv
 from .pad_lights import animation_binary_grid, stop_animation
 from .players import (
     MPV_PLAYER,
@@ -31,7 +31,7 @@ from .system_actions import (
     windows_restore,
     windows_toggle,
 )
-from .vlc_control import video_toggle_and_raise
+from .vlc_control import video_toggle_and_raise, vlc_seek_relative
 
 SOCKET_PATH = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "lpd8-mapper.sock")
 
@@ -66,6 +66,9 @@ COMMANDS["lights_off"] = PRESET_OFF
 for _pct in range(10, 101, 10):
     COMMANDS[f"volume_{_pct}"] = partial(set_volume_percent, _pct)
 
+for _s in (4, 10, 30, 60):
+    COMMANDS[f"video_forward_{_s}"] = partial(vlc_seek_relative, _s)
+    COMMANDS[f"video_back_{_s}"] = partial(vlc_seek_relative, -_s)
 
 def _register_sockets():
     for name, sock in init_sockets().items():
@@ -78,14 +81,21 @@ def _register_sockets():
 
 _register_sockets()
 
+
+def _flash(name):
+    send_mpv_command(["script-message", "flash", name])()
+
+
 def _handle(conn):
     with conn:
         data = conn.recv(256).decode().strip()
-    action = COMMANDS.get(data)
+    cmd, _, spoken = data.partition("\t")
+    action = COMMANDS.get(cmd)
     if action is None:
-        print(f"Command: unknown '{data}'")
+        print(f"Command: unknown '{cmd}'")
         return
-    print(f"Command: {data}")
+    print(f"Command: {cmd}")
+    _flash(spoken or cmd.replace("_", " "))
     action()
 
 

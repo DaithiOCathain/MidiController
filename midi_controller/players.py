@@ -1,8 +1,12 @@
+import json
 import random
 import subprocess
 import threading
+import time
 
 from . import kwin
+from .config import ULTRASTAR_CMD
+from .keyboard_actions import make_named_key_action
 from .mpv_control import (
     mpv_get_property,
     mpv_set_property,
@@ -156,9 +160,59 @@ class MPVPlayer(Player):
         send_mpv_command(["cycle", "pause"])()
 
 
+
+def _usdx_mute(mute):
+    try:
+        out = subprocess.run(
+            ["pactl", "--format=json", "list", "sink-inputs"],
+            capture_output=True, text=True, timeout=2, check=False,
+        ).stdout
+        inputs = json.loads(out)
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return
+    for si in inputs:
+        if "ultrastar" in json.dumps(si.get("properties", {})).lower():
+            subprocess.Popen(["pactl", "set-sink-input-mute",
+                              str(si["index"]), "1" if mute else "0"])
+
+class UltrastarPlayer(Player):
+    """Pause/skip are deliberate no-ops: USDX has no IPC, and a blind
+    Space would toggle pause mid-song when it's made to yield."""
+
+    def is_running(self):
+        r = subprocess.run(["pgrep", "-f", "ultrastardx"],
+                           capture_output=True, check=False)
+        return r.returncode == 0
+
+    def launch(self):
+        subprocess.Popen(ULTRASTAR_CMD)
+
+    def show(self):
+        kwin.show("ultrastar")
+        _usdx_mute(False)
+
+    def hide(self):
+        kwin.hide("ultrastar")
+        _usdx_mute(True)
+
+    def toggle_pause(self):
+        kwin.show("ultrastar")
+        _usdx_mute(False)
+        time.sleep(0.2)
+        make_named_key_action("space")()
+
+    def pause(self): pass
+    def resume(self): pass
+    def is_playing(self): return False
+    def next_track(self): pass
+    def prev_track(self): pass
+    def random_track(self): pass
+
+
+ULTRASTAR_PLAYER = UltrastarPlayer()
 VLC_PLAYER = VLCPlayer(VIDEO_VLC)
 MPV_PLAYER = MPVPlayer()
-PLAYERS = [VLC_PLAYER, MPV_PLAYER]
+PLAYERS = [VLC_PLAYER, MPV_PLAYER, ULTRASTAR_PLAYER]
 
 _active = None
 _lock = threading.Lock()

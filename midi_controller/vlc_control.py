@@ -1,6 +1,6 @@
 # NOTE: frame-stepping via HTTP is currently broken — VLC's HTTP API has
 # no frame-step command. This zone silently no-ops until fixed (see TODO
-# in mappings.py for the planned keyboard-simulation approach).
+# in mappings.py for the planned keyboard-simuzlation approach).
 
 import base64
 import http.client

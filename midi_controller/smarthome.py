@@ -11,8 +11,8 @@ SOCKETS = {}
 class KasaBulb:
     def __init__(self, name, ip):
         self.name = name
-        self._hs = [0, 100]
         self.ip = ip
+        self._hs = [0, 100]
         self._lock = threading.Lock()
         self._pending = {}
         self._running = False
@@ -54,8 +54,15 @@ class KasaBulb:
     async def _apply(self, dev, key, value):
         from kasa import Module
 
+        if key == "power":
+            target = (not dev.is_on) if value is None else value
+            if dev.is_on != target:
+                await (dev.turn_on() if target else dev.turn_off())
+            print(f"Bulb [{self.name}]: {'on' if target else 'off'}")
+            return
+
         light = dev.modules.get(Module.Light)
-        if key != "power" and light is None:
+        if light is None:
             return
         if key == "brightness" and light.is_dimmable:
             await light.set_brightness(value)
@@ -90,7 +97,6 @@ class KasaBulb:
             self._submit("brightness", brightness)
         if kelvin is not None:
             self._submit("color_temp", kelvin)
-
 
 class TuyaSocket:
     def __init__(self, name, dev_id, key, ip, version, dps="1"):
