@@ -2,30 +2,30 @@ import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from .config import SOUND_DIR
+from .config import ALERT_BULBS, SOUND_DIR
+from .smarthome import PRESET_EVENING, SOCKETS, KasaBulb
 
 UNIT = 0.3  # seconds per Morse unit; bulb LAN latency sets the floor
-ALERT_SOUND = f"{SOUND_DIR}/red_alert.mp3"
+ALERT_SOUND = f"{SOUND_DIR}/red_alert.mpga"
 
 _pool = ThreadPoolExecutor(max_workers=8)
 _stop = None
 _sound = None
 
 
-# --- ADAPT: wire these to your KasaBulb class -------------------------
 def _color_bulbs():
-    """Return only bulbs that can do colour (KL130B yes; KL110B probably not)."""
-    return []
+    return [b for b in SOCKETS.values()
+            if isinstance(b, KasaBulb) and b.name in ALERT_BULBS]
 
 def _set_red(bulb):
-    pass  # e.g. bulb.set_hsv(0, 100, 100)
+    bulb.set_hue(0)
+    bulb.set_saturation(100)
 
 def _set_power(bulb, on):
-    pass  # fast on/off; or toggle brightness 100 <-> 1 if power is too slow
+    bulb.set(on)
 
 def _restore():
-    pass  # e.g. call your lights_evening preset, or re-apply a saved snapshot
-# ----------------------------------------------------------------------
+    PRESET_EVENING()
 
 
 def _sos():

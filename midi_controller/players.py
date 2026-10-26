@@ -124,9 +124,6 @@ class MPVPlayer(Player):
     def resume(self):
         mpv_set_property("pause", False)
 
-    def next(self):
-        mpv_set_property("pause", True)
-
     def hide(self):
         kwin.hide("mpv")
 

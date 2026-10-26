@@ -1,17 +1,4 @@
 from .keyboard_actions import make_key_action, make_named_key_action
-from .players import MPV_PLAYER, ULTRASTAR_PLAYER, VLC_PLAYER, activate
-
-_nav_last = {"v": None}
-
-
-def ultrastar_nav_knob(value):
-    prev, _nav_last["v"] = _nav_last["v"], value
-    if prev is None or value == prev:
-        return
-    key = make_named_key_action("down" if value > prev else "up")
-    for _ in range(min(abs(value - prev), 5)):
-        key()
-
 from .modes import mode_dial_knob
 from .mpv_control import (
     mpv_save_and_quit,
@@ -29,6 +16,7 @@ from .pad_lights import (
     animation_strobe,
     stop_animation,
 )
+from .players import MPV_PLAYER, ULTRASTAR_PLAYER, VLC_PLAYER, activate
 from .smarthome import (
     PRESET_EVENING,
     PRESET_OFF,
@@ -55,6 +43,17 @@ from .vlc_control import (
     vlc_seek_relative,
     vlc_volume_knob,
 )
+
+_nav_last = {"v": None}
+
+
+def ultrastar_nav_knob(value):
+    prev, _nav_last["v"] = _nav_last["v"], value
+    if prev is None or value == prev:
+        return
+    key = make_named_key_action("down" if value > prev else "up")
+    for _ in range(min(abs(value - prev), 5)):
+        key()
 
 PAD_PRESS_BY_MODE = {
     1: {  # VLC video

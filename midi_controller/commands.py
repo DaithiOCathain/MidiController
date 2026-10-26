@@ -15,6 +15,7 @@ from .players import (
     skip_back,
     skip_random,
 )
+from .scenes import red_alert, red_alert_off
 from .smarthome import (
     PRESET_EVENING,
     PRESET_OFF,
@@ -32,8 +33,6 @@ from .system_actions import (
     windows_toggle,
 )
 from .vlc_control import video_toggle_and_raise, vlc_seek_relative
-from .scenes import red_alert, red_alert_off
-
 
 ALIASES = {
     "amplifier": "socket1",
@@ -55,7 +54,7 @@ COMMANDS = {
 }
 
 COMMANDS["red_alert"] = red_alert
-COMMANDS["stand_down"] = red_alert_off
+COMMANDS["red_alert_off"] = red_alert_off
 COMMANDS["watch"] = lambda: activate(VLC_PLAYER)
 COMMANDS["music"] = lambda: activate(MPV_PLAYER)
 COMMANDS["next_track"] = skip

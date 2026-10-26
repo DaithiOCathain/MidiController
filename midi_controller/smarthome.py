@@ -203,9 +203,12 @@ def all_on():
         s.set(True)
 
 
-def build_smarthome_mode():
-    notes = [36, 37, 38, 39, 40, 41, 42, 43]
-    return {note: s.toggle for note, s in zip(notes, init_sockets().values(), strict=False)}
+def build_smarthome_mode(notes=(36, 37, 38)):
+    sockets = list(init_sockets().values())
+    if len(sockets) > len(notes):
+        extra = [s.name for s in sockets[len(notes):]]
+        print(f"Smarthome: no free pads for {extra}")
+    return {note: s.toggle for note, s in zip(notes, sockets, strict=False)}
 
 def bulb_knob(attr, scale):
     def handler(value):
