@@ -44,6 +44,7 @@ RESUME_FILE = str(HOME / ".vlc_resume.json")
 SOUND_DIR = str(HOME / "Sounds")
 
 ULTRASTAR_CMD = ["ultrastardx"]  # flatpak: ["flatpak", "run", "eu.usdx.UltraStarDeluxe"]
+ALERT_BULBS = ["bulb1", "bulb2", "bulb3" ]   # names from sockets.json, e.g. ["bulb2"]
 
 _overlay()  # first pass: scalars, so the derived values below pick them up
 

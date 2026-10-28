@@ -35,3 +35,14 @@ def test_import_vlc_control():
 
 def test_import_smarthome():
     import midi_controller.smarthome
+
+def test_import_commands():
+    import midi_controller.commands
+
+
+def test_import_scenes():
+    import midi_controller.scenes
+
+
+def test_import_players():
+    import midi_controller.players
